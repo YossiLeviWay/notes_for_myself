@@ -100,6 +100,7 @@ interface Note {
   isFavorite: boolean;
   isArchived: boolean;
   imageUrl?: string;
+  status: 'todo' | 'in-progress' | 'done';
   createdAt: any;
   updatedAt: any;
 }
@@ -111,6 +112,136 @@ interface FolderType {
   createdAt: any;
 }
 
+// Note Card Component for reuse
+function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange }: { 
+  note: Note, 
+  isAdmin: boolean, 
+  onEdit: () => void, 
+  onFavorite: () => void | Promise<void>, 
+  onArchive: () => void | Promise<void>, 
+  onDelete: () => void | Promise<void>,
+  onStatusChange: (status: 'todo' | 'in-progress' | 'done') => void | Promise<void>,
+  key?: string
+}) {
+  return (
+    <motion.div 
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      className="group bg-white rounded-[2rem] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 border border-gray-100/50 flex flex-col h-full backdrop-blur-sm"
+    >
+      {note.imageUrl && (
+        <div className="h-40 overflow-hidden relative">
+          <img 
+            src={note.imageUrl} 
+            alt={note.title} 
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-60" />
+          <div className="absolute top-3 left-3">
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md ${
+              note.status === 'todo' ? 'bg-blue-500/80' : 
+              note.status === 'in-progress' ? 'bg-orange-500/80' : 
+              'bg-green-500/80'
+            }`}>
+              {note.status?.replace('-', ' ') || 'todo'}
+            </span>
+          </div>
+        </div>
+      )}
+      <div className="p-6 flex-1 flex flex-col">
+        {!note.imageUrl && (
+          <div className="mb-3">
+            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+              note.status === 'todo' ? 'bg-blue-50 text-blue-500' : 
+              note.status === 'in-progress' ? 'bg-orange-50 text-orange-500' : 
+              'bg-green-50 text-green-500'
+            }`}>
+              {note.status?.replace('-', ' ') || 'todo'}
+            </span>
+          </div>
+        )}
+        <div className="flex justify-between items-start mb-3">
+          <h3 className="font-bold text-lg text-gray-900 line-clamp-1 group-hover:text-rose-500 transition-colors">{note.title}</h3>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={onFavorite}
+              className={`p-1.5 rounded-full transition-colors ${note.isFavorite ? 'text-yellow-400 bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}
+            >
+              <Star size={16} fill={note.isFavorite ? "currentColor" : "none"} />
+            </button>
+          </div>
+        </div>
+        
+        <div 
+          className="text-gray-500 text-sm line-clamp-3 mb-4 flex-1 prose prose-sm max-w-none leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: note.content }}
+        />
+
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {note.tags.map(tag => (
+            <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+              #{tag}
+            </span>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+          <div className="flex items-center gap-3 text-gray-400">
+            {note.dueDate && (
+              <div className={`flex items-center gap-1 text-[10px] font-bold ${isBefore(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), new Date()) ? 'text-rose-500' : ''}`}>
+                <Calendar size={12} />
+                {format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'MMM d')}
+              </div>
+            )}
+            <div className="flex items-center gap-1 text-[10px] font-bold">
+              <Clock size={12} />
+              {note.createdAt ? format(note.createdAt.toDate(), 'MMM d') : 'Just now'}
+            </div>
+          </div>
+          
+          {isAdmin && (
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+              <div className="flex bg-gray-100 rounded-full p-0.5 mr-1">
+                {(['todo', 'in-progress', 'done'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => onStatusChange(s)}
+                    className={`p-1 rounded-full transition-all ${note.status === s ? 'bg-white shadow-sm text-rose-500' : 'text-gray-400 hover:text-gray-600'}`}
+                    title={`Mark as ${s}`}
+                  >
+                    {s === 'todo' ? <Minus size={12} /> : s === 'in-progress' ? <Clock size={12} /> : <CheckCircle2 size={12} />}
+                  </button>
+                ))}
+              </div>
+              <button 
+                onClick={onEdit}
+                className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+              >
+                <Edit2 size={14} />
+              </button>
+              <button 
+                onClick={onArchive}
+                className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+              >
+                <Archive size={14} />
+              </button>
+              <button 
+                onClick={onDelete}
+                className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -119,7 +250,7 @@ export default function App() {
   const [currentNote, setCurrentNote] = useState<Note | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'board' | 'archive' | 'favorites' | 'due'>('board');
+  const [viewMode, setViewMode] = useState<'board' | 'archive' | 'favorites' | 'due' | 'workflow'>('board');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
@@ -139,6 +270,7 @@ export default function App() {
   const [noteTags, setNoteTags] = useState<string[]>([]);
   const [noteDueDate, setNoteDueDate] = useState<string>('');
   const [noteImageUrl, setNoteImageUrl] = useState<string>('');
+  const [noteStatus, setNoteStatus] = useState<'todo' | 'in-progress' | 'done'>('todo');
 
   const handleFirestoreError = (error: any, operationType: OperationType, path: string) => {
     const errInfo = {
@@ -210,6 +342,7 @@ export default function App() {
         tags: noteTags,
         dueDate: noteDueDate ? new Date(noteDueDate) : null,
         imageUrl: noteImageUrl,
+        status: noteStatus,
         isFavorite: editNoteData?.isFavorite || false,
         isArchived: editNoteData?.isArchived || false,
         updatedAt: serverTimestamp()
@@ -239,6 +372,7 @@ export default function App() {
     setNoteTags([]);
     setNoteDueDate('');
     setNoteImageUrl('');
+    setNoteStatus('todo');
   };
 
   const handleAddFolder = async (name: string, parentId: string | null) => {
@@ -272,6 +406,12 @@ export default function App() {
     if (!isAdmin) return;
     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'notes', note.id);
     await updateDoc(docRef, { isArchived: !note.isArchived });
+  };
+
+  const updateNoteStatus = async (noteId: string, newStatus: 'todo' | 'in-progress' | 'done') => {
+    if (!isAdmin) return;
+    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'notes', noteId);
+    await updateDoc(docRef, { status: newStatus, updatedAt: serverTimestamp() });
   };
 
   const deleteNote = async (id: string) => {
@@ -405,6 +545,14 @@ export default function App() {
                 </li>
                 <li>
                   <button 
+                    onClick={() => setViewMode('workflow')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'workflow' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-100 text-gray-700'}`}
+                  >
+                    <Layout size={18} /> Workflow Board
+                  </button>
+                </li>
+                <li>
+                  <button 
                     onClick={() => setViewMode('favorites')}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'favorites' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-100 text-gray-700'}`}
                   >
@@ -477,7 +625,8 @@ export default function App() {
               <h2 className="text-3xl font-bold text-gray-900">
                 {viewMode === 'board' ? (currentFolderId ? folders.find(f => f.id === currentFolderId)?.name : 'My Notes') : 
                  viewMode === 'archive' ? 'Archive' : 
-                 viewMode === 'favorites' ? 'Favorites' : 'Upcoming Due Dates'}
+                 viewMode === 'favorites' ? 'Favorites' : 
+                 viewMode === 'workflow' ? 'Workflow Board' : 'Upcoming Due Dates'}
               </h2>
               <p className="text-gray-500 mt-1">{filteredNotes.length} notes found</p>
             </div>
@@ -494,115 +643,85 @@ export default function App() {
             </div>
           </div>
 
-          {/* Notes Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <AnimatePresence mode="popLayout">
-              {filteredNotes.map((note) => (
-                <motion.div 
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  key={note.id} 
-                  className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col h-full"
-                >
-                  {note.imageUrl && (
-                    <div className="h-48 overflow-hidden relative">
-                      <img 
-                        src={note.imageUrl} 
-                        alt={note.title} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
-                    </div>
-                  )}
-                  <div className="p-5 flex-1 flex flex-col">
-                    <div className="flex justify-between items-start mb-3">
-                      <h3 className="font-bold text-lg text-gray-900 line-clamp-1">{note.title}</h3>
-                      <div className="flex items-center gap-1">
-                        <button 
-                          onClick={() => toggleFavorite(note)}
-                          className={`p-1.5 rounded-full transition-colors ${note.isFavorite ? 'text-yellow-400 bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}
-                        >
-                          <Star size={16} fill={note.isFavorite ? "currentColor" : "none"} />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div 
-                      className="text-gray-600 text-sm line-clamp-3 mb-4 flex-1 prose prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: note.content }}
-                    />
-
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {note.tags.map(tag => (
-                        <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 px-2 py-0.5 rounded">
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-                      <div className="flex items-center gap-2 text-gray-400">
-                        {note.dueDate && (
-                          <div className={`flex items-center gap-1 text-[10px] font-bold ${isBefore(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), new Date()) ? 'text-rose-500' : ''}`}>
-                            <Calendar size={12} />
-                            {format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'MMM d')}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1 text-[10px] font-bold">
-                          <Clock size={12} />
-                          {note.createdAt ? format(note.createdAt.toDate(), 'MMM d') : 'Just now'}
-                        </div>
-                      </div>
-                      
-                      {isAdmin && (
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => {
-                              setEditNoteData(note);
-                              setNoteTitle(note.title);
-                              setEditorContent(note.content);
-                              setNoteFolderId(note.folderId);
-                              setNoteTags(note.tags);
-                              setNoteDueDate(note.dueDate ? format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'yyyy-MM-dd') : '');
-                              setNoteImageUrl(note.imageUrl || '');
-                              setShowAddNoteModal(true);
-                            }}
-                            className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          <button 
-                            onClick={() => toggleArchive(note)}
-                            className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
-                          >
-                            <Archive size={14} />
-                          </button>
-                          <button 
-                            onClick={() => deleteNote(note.id)}
-                            className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
+          {/* Notes Grid or Workflow Board */}
+          {viewMode === 'workflow' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              {(['todo', 'in-progress', 'done'] as const).map((status) => (
+                <div key={status} className="bg-gray-100/50 rounded-3xl p-4 min-h-[600px] flex flex-col gap-4">
+                  <div className="flex items-center justify-between px-2 mb-2">
+                    <h3 className="font-bold text-sm uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${status === 'todo' ? 'bg-blue-400' : status === 'in-progress' ? 'bg-orange-400' : 'bg-green-400'}`} />
+                      {status.replace('-', ' ')}
+                    </h3>
+                    <span className="bg-white px-2 py-0.5 rounded-full text-[10px] font-bold text-gray-400 shadow-sm">
+                      {filteredNotes.filter(n => n.status === status).length}
+                    </span>
                   </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-            {filteredNotes.length === 0 && (
-              <div className="col-span-full py-20 text-center">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-                  <Search size={32} />
+                  
+                  <div className="flex flex-col gap-4">
+                    {filteredNotes.filter(n => n.status === status).map((note) => (
+                      <NoteCard 
+                        key={note.id} 
+                        note={note} 
+                        isAdmin={isAdmin} 
+                        onEdit={() => {
+                          setEditNoteData(note);
+                          setNoteTitle(note.title);
+                          setEditorContent(note.content);
+                          setNoteFolderId(note.folderId);
+                          setNoteTags(note.tags);
+                          setNoteDueDate(note.dueDate ? format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'yyyy-MM-dd') : '');
+                          setNoteImageUrl(note.imageUrl || '');
+                          setNoteStatus(note.status || 'todo');
+                          setShowAddNoteModal(true);
+                        }}
+                        onFavorite={() => toggleFavorite(note)}
+                        onArchive={() => toggleArchive(note)}
+                        onDelete={() => deleteNote(note.id)}
+                        onStatusChange={(s) => updateNoteStatus(note.id, s)}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900">No notes found</h3>
-                <p className="text-gray-500">Try adjusting your search or filters</p>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <AnimatePresence mode="popLayout">
+                {filteredNotes.map((note) => (
+                  <NoteCard 
+                    key={note.id} 
+                    note={note} 
+                    isAdmin={isAdmin} 
+                    onEdit={() => {
+                      setEditNoteData(note);
+                      setNoteTitle(note.title);
+                      setEditorContent(note.content);
+                      setNoteFolderId(note.folderId);
+                      setNoteTags(note.tags);
+                      setNoteDueDate(note.dueDate ? format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'yyyy-MM-dd') : '');
+                      setNoteImageUrl(note.imageUrl || '');
+                      setNoteStatus(note.status || 'todo');
+                      setShowAddNoteModal(true);
+                    }}
+                    onFavorite={() => toggleFavorite(note)}
+                    onArchive={() => toggleArchive(note)}
+                    onDelete={() => deleteNote(note.id)}
+                    onStatusChange={(s) => updateNoteStatus(note.id, s)}
+                  />
+                ))}
+              </AnimatePresence>
+              {filteredNotes.length === 0 && (
+                <div className="col-span-full py-20 text-center">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                    <Search size={32} />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">No notes found</h3>
+                  <p className="text-gray-500">Try adjusting your search or filters</p>
+                </div>
+              )}
+            </div>
+          )}
         </main>
       </div>
 
@@ -717,14 +836,26 @@ export default function App() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Due Date</label>
-                        <input 
-                          type="date" 
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Status</label>
+                        <select 
                           className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
-                          value={noteDueDate}
-                          onChange={(e) => setNoteDueDate(e.target.value)}
-                        />
+                          value={noteStatus}
+                          onChange={(e) => setNoteStatus(e.target.value as any)}
+                        >
+                          <option value="todo">To Do</option>
+                          <option value="in-progress">In Progress</option>
+                          <option value="done">Done</option>
+                        </select>
                       </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Due Date</label>
+                      <input 
+                        type="date" 
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
+                        value={noteDueDate}
+                        onChange={(e) => setNoteDueDate(e.target.value)}
+                      />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Image URL</label>
