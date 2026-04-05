@@ -60,7 +60,7 @@ import { db, auth } from './firebase';
 import { format, isAfter, isBefore, startOfToday, endOfToday, addDays } from 'date-fns';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 const appId = 'notes-for-myself-app';
 
@@ -243,6 +243,43 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
 }
 
 export default function App() {
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleError = (e: ErrorEvent) => {
+      setError(e.message);
+    };
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-rose-50 p-8">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-2xl border border-rose-100">
+          <div className="w-16 h-16 bg-rose-100 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <AlertCircle size={32} />
+          </div>
+          <h2 className="text-2xl font-bold text-center mb-4">Something went wrong</h2>
+          <p className="text-gray-500 text-center mb-6 text-sm">The application encountered an error. Please try refreshing the page.</p>
+          <div className="bg-gray-50 p-4 rounded-xl text-xs font-mono text-rose-600 break-all mb-6">
+            {error}
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full bg-rose-500 text-white py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <AppContent />;
+}
+
+function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -460,13 +497,34 @@ export default function App() {
     ],
   };
 
-  if (!isAuthReady) return <div className="min-h-screen flex items-center justify-center bg-white">
-    <motion.div 
-      animate={{ rotate: 360 }}
-      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-      className="w-12 h-12 border-4 border-rose-500 border-t-transparent rounded-full"
-    />
-  </div>;
+  if (!isAuthReady) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white p-8">
+      {authError ? (
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-2xl border border-rose-100 text-center">
+          <div className="w-16 h-16 bg-rose-100 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <AlertCircle size={32} />
+          </div>
+          <h2 className="text-2xl font-bold mb-4">Connection Error</h2>
+          <p className="text-gray-500 mb-6 text-sm">We couldn't connect to the database. Please check your internet connection or try again later.</p>
+          <div className="bg-gray-50 p-4 rounded-xl text-xs font-mono text-rose-600 break-all mb-6">
+            {authError}
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full bg-rose-500 text-white py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all"
+          >
+            Retry Connection
+          </button>
+        </div>
+      ) : (
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-12 h-12 border-4 border-rose-500 border-t-transparent rounded-full"
+        />
+      )}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#F7F7F7] text-[#222222] font-sans selection:bg-rose-100">
