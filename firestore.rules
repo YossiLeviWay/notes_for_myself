@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    match /artifacts/{appId}/public/data/questions/{questionId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /artifacts/{appId}/public/data/folders/{folderId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /artifacts/{appId}/public/data/students/{studentId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /artifacts/{appId}/public/data/answers/{answerId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+  }
+}
