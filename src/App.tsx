@@ -12,8 +12,9 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { 
-  signInAnonymously, 
+  signInWithEmailAndPassword, 
   onAuthStateChanged,
+  signOut,
   User
 } from 'firebase/auth';
 import { 
@@ -289,7 +290,6 @@ function AppContent() {
   const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'board' | 'archive' | 'favorites' | 'due' | 'workflow'>('board');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [showAddFolderModal, setShowAddFolderModal] = useState(false);
   const [editNoteData, setEditNoteData] = useState<Note | null>(null);
@@ -333,47 +333,21 @@ function AppContent() {
   };
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const userCredential = await signInAnonymously(auth);
-        console.log("Authenticated as:", userCredential.user.uid);
-        
-        // Test connection after successful auth
-        const { getDocFromServer, doc } = await import('firebase/firestore');
-        try {
-          // Try to read a path that exists or at least is allowed by rules
-          await getDocFromServer(doc(db, 'artifacts', appId, 'public', 'data', 'notes', 'connection-test'));
-        } catch (connErr: any) {
-          if (connErr.message?.includes('offline')) {
-            console.error("Firestore connection failed: The client is offline. Check projectId and network.");
-          } else if (connErr.code === 'permission-denied') {
-            console.log("Firestore connection test: Permission denied (expected if document doesn't exist, but connection is OK)");
-          } else {
-            console.error("Firestore connection test error:", connErr);
-          }
-        }
-      } catch (err: any) {
-        console.error("Auth error:", err);
-        if (err.code === 'auth/configuration-not-found') {
-          setAuthError("Firebase Auth is not enabled. Please enable it in the Firebase Console: https://console.firebase.google.com/project/nfms-e3f18/authentication");
-        } else if (err.code === 'auth/admin-restricted-operation') {
-          setAuthError("CRITICAL: Anonymous Sign-in is disabled in your Firebase Console. This app requires it to function. Please go to: Authentication -> Sign-in method -> Anonymous -> Enable.");
-        } else {
-          setAuthError(err.message || String(err));
-        }
-      }
-    };
-    initAuth();
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setIsAuthReady(true);
+      if (u && u.email === 'admin@notes.com') {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
     });
     return () => unsubscribe();
   }, []);
 
   // Fetch Folders
   useEffect(() => {
-    if (!user) return;
+    if (!isAdmin) return;
     const fCol = collection(db, 'artifacts', appId, 'public', 'data', 'folders');
     const unsubscribe = onSnapshot(fCol, (snapshot) => {
       const fs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FolderType));
@@ -382,11 +356,11 @@ function AppContent() {
       handleFirestoreError(error, OperationType.GET, fCol.path);
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [isAdmin]);
 
   // Fetch Notes
   useEffect(() => {
-    if (!user) return;
+    if (!isAdmin) return;
     const nCol = collection(db, 'artifacts', appId, 'public', 'data', 'notes');
     const unsubscribe = onSnapshot(nCol, (snapshot) => {
       const ns = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note));
@@ -395,15 +369,29 @@ function AppContent() {
       handleFirestoreError(error, OperationType.GET, nCol.path);
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [isAdmin]);
 
-  const handleLogin = () => {
-    if (loginPassword === '123qwe123') {
-      setIsAdmin(true);
-      setShowLoginModal(false);
+  const handleLogin = async () => {
+    try {
+      setAuthError(null);
+      await signInWithEmailAndPassword(auth, 'admin@notes.com', loginPassword);
       setLoginPassword('');
-    } else {
-      alert("Incorrect password");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setAuthError("Incorrect password or Admin user not found. Please ensure 'admin@notes.com' is created in Firebase Console.");
+      } else {
+        setAuthError(err.message);
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setIsAdmin(false);
+    } catch (err: any) {
+      console.error("Logout error:", err);
     }
   };
 
@@ -534,32 +522,57 @@ function AppContent() {
 
   if (!isAuthReady) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white p-8">
-      {authError ? (
-        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-2xl border border-rose-100 text-center">
-          <div className="w-16 h-16 bg-rose-100 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <AlertCircle size={32} />
-          </div>
-          <h2 className="text-2xl font-bold mb-4">Connection Error</h2>
-          <p className="text-gray-500 mb-6 text-sm">We couldn't connect to the database. Please check your internet connection or try again later.</p>
-          <div className="bg-gray-50 p-4 rounded-xl text-xs font-mono text-rose-600 break-all mb-6">
-            {authError}
-          </div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="w-full bg-rose-500 text-white py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all"
-          >
-            Retry Connection
-          </button>
-        </div>
-      ) : (
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-12 h-12 border-4 border-rose-500 border-t-transparent rounded-full"
-        />
-      )}
+      <motion.div 
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        className="w-12 h-12 border-4 border-rose-500 border-t-transparent rounded-full"
+      />
     </div>
   );
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full bg-white p-10 rounded-[3rem] shadow-2xl border border-gray-100 text-center"
+        >
+          <div className="w-20 h-20 bg-rose-100 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+            <Folder size={40} />
+          </div>
+          <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">Notes For Myself</h1>
+          <p className="text-gray-500 mb-10 font-medium">Admin Login Required</p>
+          
+          {authError && (
+            <div className="bg-rose-50 text-rose-600 p-4 rounded-2xl text-sm font-medium mb-8 border border-rose-100">
+              {authError}
+            </div>
+          )}
+          
+          <input 
+            type="password" 
+            value={loginPassword} 
+            onChange={(e) => setLoginPassword(e.target.value)}
+            placeholder="Enter Admin Password" 
+            className="w-full p-5 bg-gray-50 border border-gray-200 rounded-2xl mb-6 text-center focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-lg font-bold tracking-widest"
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+          />
+          
+          <button 
+            onClick={handleLogin}
+            className="w-full bg-rose-500 text-white py-5 rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all active:translate-y-0"
+          >
+            Access Notes
+          </button>
+          
+          <p className="mt-8 text-xs text-gray-400 font-medium">
+            This application is restricted to authorized personnel only.
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F7F7] text-[#222222] font-sans selection:bg-rose-100">
@@ -598,29 +611,21 @@ function AppContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            {!isAdmin ? (
+            <div className="flex items-center gap-3">
               <button 
-                onClick={() => setShowLoginModal(true)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-semibold hover:bg-gray-50 transition-colors"
+                onClick={() => { setEditNoteData(null); resetNoteForm(); setShowAddNoteModal(true); }}
+                className="bg-rose-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2"
               >
-                Admin Login
+                <Plus size={18} /> <span className="hidden sm:inline">New Note</span>
               </button>
-            ) : (
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => { setEditNoteData(null); resetNoteForm(); setShowAddNoteModal(true); }}
-                  className="bg-rose-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2"
-                >
-                  <Plus size={18} /> <span className="hidden sm:inline">New Note</span>
-                </button>
-                <button 
-                  onClick={() => setIsAdmin(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full text-gray-600"
-                >
-                  <LogOut size={20} />
-                </button>
-              </div>
-            )}
+              <button 
+                onClick={handleLogout}
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition-colors"
+                title="Logout"
+              >
+                <LogOut size={20} />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -1066,54 +1071,6 @@ function AppContent() {
                 </button>
                 <button 
                   onClick={() => setShowAddFolderModal(false)}
-                  className="flex-1 bg-gray-100 text-gray-600 py-4 rounded-2xl font-bold hover:bg-gray-200 transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {showLoginModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-md" 
-              onClick={() => setShowLoginModal(false)} 
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-8"
-            >
-              <div className="w-16 h-16 bg-rose-100 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Settings size={32} />
-              </div>
-              <h2 className="text-2xl font-bold text-center mb-2">Admin Access</h2>
-              <p className="text-gray-500 text-center mb-8 text-sm">Enter password to manage your notes</p>
-              
-              <input 
-                type="password" 
-                value={loginPassword} 
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="Password" 
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl mb-6 text-center focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all"
-                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-              />
-              
-              <div className="flex gap-3">
-                <button 
-                  onClick={handleLogin}
-                  className="flex-1 bg-rose-500 text-white py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all"
-                >
-                  Login
-                </button>
-                <button 
-                  onClick={() => setShowLoginModal(false)}
                   className="flex-1 bg-gray-100 text-gray-600 py-4 rounded-2xl font-bold hover:bg-gray-200 transition-all"
                 >
                   Cancel
