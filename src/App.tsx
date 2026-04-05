@@ -336,7 +336,7 @@ function AppContent() {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setIsAuthReady(true);
-      if (u && u.email === 'admin@notes.com') {
+      if (u && (u.email === 'admin@notes.com' || u.uid === 'qelYRH3ns4daioIRieNXWU2hvpA2')) {
         setIsAdmin(true);
       } else {
         setIsAdmin(false);

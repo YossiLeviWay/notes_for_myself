@@ -58,25 +58,17 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.email == 'admin@notes.com';
+      return isAuthenticated() && 
+        (request.auth.token.email == 'admin@notes.com' || 
+         request.auth.uid == 'qelYRH3ns4daioIRieNXWU2hvpA2');
     }
 
     // ===============================================================
     // Rules
     // ===============================================================
 
-    match /artifacts/{appId}/public/data/notes/{noteId=**} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() && hasRequiredFields(['title', 'content', 'tags', 'isFavorite', 'isArchived', 'status', 'createdAt', 'updatedAt']) && isValidNote(request.resource.data);
-      allow update: if isAdmin() && isValidNote(request.resource.data);
-      allow delete: if isAdmin();
-    }
-
-    match /artifacts/{appId}/public/data/folders/{folderId=**} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() && hasRequiredFields(['name', 'createdAt']) && isValidFolder(request.resource.data);
-      allow update: if isAdmin() && isValidFolder(request.resource.data);
-      allow delete: if isAdmin();
+    match /artifacts/notes-for-myself-app/{allPaths=**} {
+      allow read, write: if isAdmin();
     }
   }
 }
