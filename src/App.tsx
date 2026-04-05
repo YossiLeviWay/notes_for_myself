@@ -306,6 +306,8 @@ export default function App() {
     const unsubscribe = onSnapshot(fCol, (snapshot) => {
       const fs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FolderType));
       setFolders(fs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, fCol.path);
     });
     return () => unsubscribe();
   }, [user]);
@@ -317,6 +319,8 @@ export default function App() {
     const unsubscribe = onSnapshot(nCol, (snapshot) => {
       const ns = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note));
       setNotes(ns.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, nCol.path);
     });
     return () => unsubscribe();
   }, [user]);

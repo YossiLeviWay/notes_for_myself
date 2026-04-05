@@ -6,22 +6,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    match /artifacts/{appId}/public/data/questions/{questionId} {
+    match /artifacts/{appId}/public/data/notes/{noteId} {
       allow read: if true;
       allow write: if isAuthenticated();
     }
 
     match /artifacts/{appId}/public/data/folders/{folderId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
-
-    match /artifacts/{appId}/public/data/students/{studentId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
-
-    match /artifacts/{appId}/public/data/answers/{answerId} {
       allow read: if true;
       allow write: if isAuthenticated();
     }
