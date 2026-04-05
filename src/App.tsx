@@ -309,17 +309,42 @@ function AppContent() {
   const [noteImageUrl, setNoteImageUrl] = useState<string>('');
   const [noteStatus, setNoteStatus] = useState<'todo' | 'in-progress' | 'done'>('todo');
 
-  const handleFirestoreError = (error: any, operationType: OperationType, path: string) => {
+  const handleFirestoreError = (error: any, operationType: OperationType, path: string | null) => {
     const errInfo = {
-      error: error?.message || String(error),
+      error: error instanceof Error ? error.message : String(error),
+      authInfo: {
+        userId: auth.currentUser?.uid,
+        email: auth.currentUser?.email,
+        emailVerified: auth.currentUser?.emailVerified,
+        isAnonymous: auth.currentUser?.isAnonymous,
+        tenantId: auth.currentUser?.tenantId,
+        providerInfo: auth.currentUser?.providerData.map(provider => ({
+          providerId: provider.providerId,
+          displayName: provider.displayName,
+          email: provider.email,
+          photoUrl: provider.photoURL
+        })) || []
+      },
       operationType,
-      path,
-      userId: auth.currentUser?.uid,
+      path
     };
-    console.error('Firestore Error:', errInfo);
+    console.error('Firestore Error:', JSON.stringify(errInfo));
+    throw new Error(JSON.stringify(errInfo));
   };
 
   useEffect(() => {
+    const testConnection = async () => {
+      try {
+        const { getDocFromServer, doc } = await import('firebase/firestore');
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. The client is offline.");
+        }
+      }
+    };
+    testConnection();
+
     const initAuth = async () => {
       try {
         await signInAnonymously(auth);

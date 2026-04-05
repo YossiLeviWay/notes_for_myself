@@ -1,0 +1,46 @@
+{
+  "entities": {
+    "Note": {
+      "title": "Note",
+      "description": "A single note entity.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the note." },
+        "content": { "type": "string", "description": "The rich text content of the note." },
+        "folderId": { "type": "string", "description": "The ID of the folder this note belongs to." },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "A list of tags associated with the note." },
+        "dueDate": { "type": "string", "format": "date-time", "description": "Optional due date for the note." },
+        "isFavorite": { "type": "boolean", "description": "Whether the note is marked as a favorite." },
+        "isArchived": { "type": "boolean", "description": "Whether the note is archived." },
+        "imageUrl": { "type": "string", "description": "Optional URL for an attached image." },
+        "status": { "type": "string", "enum": ["todo", "in-progress", "done"], "description": "The workflow status of the note." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the note was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the note was last updated." },
+        "uid": { "type": "string", "description": "The owner's user ID." }
+      },
+      "required": ["title", "content", "tags", "isFavorite", "isArchived", "status", "createdAt", "updatedAt", "uid"]
+    },
+    "Folder": {
+      "title": "Folder",
+      "description": "A folder for organizing notes.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the folder." },
+        "parentId": { "type": "string", "description": "The ID of the parent folder, if any." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the folder was created." },
+        "uid": { "type": "string", "description": "The owner's user ID." }
+      },
+      "required": ["name", "createdAt", "uid"]
+    }
+  },
+  "firestore": {
+    "/artifacts/notes-for-myself-app/public/data/notes/{noteId}": {
+      "schema": "Note",
+      "description": "Collection of notes."
+    },
+    "/artifacts/notes-for-myself-app/public/data/folders/{folderId}": {
+      "schema": "Folder",
+      "description": "Collection of folders."
+    }
+  }
+}
