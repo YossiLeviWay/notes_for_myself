@@ -61,14 +61,14 @@ service cloud.firestore {
     // Rules
     // ===============================================================
 
-    match /artifacts/notes-for-myself-app/public/data/notes/{noteId} {
+    match /artifacts/{appId}/public/data/notes/{noteId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && hasRequiredFields(['title', 'content', 'tags', 'isFavorite', 'isArchived', 'status', 'createdAt', 'updatedAt']) && isValidNote(request.resource.data);
       allow update: if isAuthenticated() && isValidNote(request.resource.data);
       allow delete: if isAuthenticated();
     }
 
-    match /artifacts/notes-for-myself-app/public/data/folders/{folderId} {
+    match /artifacts/{appId}/public/data/folders/{folderId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && hasRequiredFields(['name', 'createdAt']) && isValidFolder(request.resource.data);
       allow update: if isAuthenticated() && isValidFolder(request.resource.data);

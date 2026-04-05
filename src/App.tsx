@@ -333,24 +333,34 @@ function AppContent() {
   };
 
   useEffect(() => {
-    const testConnection = async () => {
-      try {
-        const { getDocFromServer, doc } = await import('firebase/firestore');
-        await getDocFromServer(doc(db, 'test', 'connection'));
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration. The client is offline.");
-        }
-      }
-    };
-    testConnection();
-
     const initAuth = async () => {
       try {
-        await signInAnonymously(auth);
+        const userCredential = await signInAnonymously(auth);
+        console.log("Authenticated as:", userCredential.user.uid);
+        
+        // Test connection after successful auth
+        const { getDocFromServer, doc } = await import('firebase/firestore');
+        try {
+          // Try to read a path that exists or at least is allowed by rules
+          await getDocFromServer(doc(db, 'artifacts', appId, 'public', 'data', 'notes', 'connection-test'));
+        } catch (connErr: any) {
+          if (connErr.message?.includes('offline')) {
+            console.error("Firestore connection failed: The client is offline. Check projectId and network.");
+          } else if (connErr.code === 'permission-denied') {
+            console.log("Firestore connection test: Permission denied (expected if document doesn't exist, but connection is OK)");
+          } else {
+            console.error("Firestore connection test error:", connErr);
+          }
+        }
       } catch (err: any) {
         console.error("Auth error:", err);
-        setAuthError(err.message);
+        if (err.code === 'auth/configuration-not-found') {
+          setAuthError("Firebase Auth is not enabled. Please enable it in the Firebase Console: https://console.firebase.google.com/project/nfms-e3f18/authentication");
+        } else if (err.code === 'auth/admin-restricted-operation') {
+          setAuthError("CRITICAL: Anonymous Sign-in is disabled in your Firebase Console. This app requires it to function. Please go to: Authentication -> Sign-in method -> Anonymous -> Enable.");
+        } else {
+          setAuthError(err.message || String(err));
+        }
       }
     };
     initAuth();
