@@ -1,74 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: artifacts/notes-for-myself-app/public/data/notes
-    // Document ID: auto-generated
-    // Fields:
-    //   - title: string (required)
-    //   - content: string (required)
-    //   - folderId: string (optional)
-    //   - tags: list of strings (required)
-    //   - dueDate: timestamp (optional)
-    //   - isFavorite: bool (required)
-    //   - isArchived: bool (required)
-    //   - imageUrl: string (optional)
-    //   - status: string (required, enum: ['todo', 'in-progress', 'done'])
-    //   - createdAt: timestamp (required)
-    //   - updatedAt: timestamp (required)
-    //
-    // Collection: artifacts/notes-for-myself-app/public/data/folders
-    // Document ID: auto-generated
-    // Fields:
-    //   - name: string (required)
-    //   - parentId: string (optional)
-    //   - createdAt: timestamp (required)
-    //
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
-    
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
-    }
-
-    function isValidNote(data) {
-      return data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
-             data.content is string && data.content.size() < 50000 &&
-             data.tags is list &&
-             data.isFavorite is bool &&
-             data.isArchived is bool &&
-             data.status in ['todo', 'in-progress', 'done'] &&
-             data.createdAt is timestamp &&
-             data.updatedAt is timestamp;
-    }
-
-    function isValidFolder(data) {
-      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.createdAt is timestamp;
-    }
-
-    function isAdmin() {
-      return isAuthenticated() && 
-        (request.auth.token.email == 'admin@notes.com' || 
-         request.auth.uid == 'qelYRH3ns4daioIRieNXWU2hvpA2');
-    }
-
-    // ===============================================================
-    // Rules
-    // ===============================================================
-
-    match /artifacts/notes-for-myself-app/{allPaths=**} {
-      allow read, write: if isAdmin();
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null && (request.auth.uid == 'qelYRH3ns4daioIRieNXWU2hvpA2' || request.auth.token.email == 'admin@notes.com');
     }
   }
 }

@@ -347,7 +347,7 @@ function AppContent() {
 
   // Fetch Folders
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!user || !isAdmin) return;
     const fCol = collection(db, 'artifacts', appId, 'public', 'data', 'folders');
     const unsubscribe = onSnapshot(fCol, (snapshot) => {
       const fs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FolderType));
@@ -356,11 +356,11 @@ function AppContent() {
       handleFirestoreError(error, OperationType.GET, fCol.path);
     });
     return () => unsubscribe();
-  }, [isAdmin]);
+  }, [user, isAdmin]);
 
   // Fetch Notes
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!user || !isAdmin) return;
     const nCol = collection(db, 'artifacts', appId, 'public', 'data', 'notes');
     const unsubscribe = onSnapshot(nCol, (snapshot) => {
       const ns = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note));
@@ -369,7 +369,7 @@ function AppContent() {
       handleFirestoreError(error, OperationType.GET, nCol.path);
     });
     return () => unsubscribe();
-  }, [isAdmin]);
+  }, [user, isAdmin]);
 
   const handleLogin = async () => {
     try {
