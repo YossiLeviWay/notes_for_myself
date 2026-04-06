@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   collection, 
   addDoc, 
@@ -6,6 +6,7 @@ import {
   doc, 
   deleteDoc, 
   updateDoc, 
+  setDoc,
   serverTimestamp,
   query,
   where,
@@ -101,9 +102,34 @@ interface Note {
   isFavorite: boolean;
   isArchived: boolean;
   imageUrl?: string;
-  status: 'todo' | 'in-progress' | 'done';
+  status: string;
+  color?: string;
   createdAt: any;
   updatedAt: any;
+}
+
+interface StatusOption {
+  id: string;
+  label: string;
+  color: string;
+}
+
+const PASTEL_COLORS = [
+  { name: 'Default', value: '' },
+  { name: 'Pink', value: '#FFD1DC' },
+  { name: 'Blue', value: '#AEC6CF' },
+  { name: 'Green', value: '#77DD77' },
+  { name: 'Yellow', value: '#FDFD96' },
+  { name: 'Purple', value: '#B39EB5' },
+  { name: 'Orange', value: '#FFB347' },
+  { name: 'Mint', value: '#98FF98' },
+  { name: 'Lavender', value: '#E6E6FA' }
+];
+
+interface UserSettings {
+  defaultFont: string;
+  defaultSize: string;
+  defaultAlignment: 'left' | 'center' | 'right' | 'justify';
 }
 
 interface FolderType {
@@ -114,24 +140,77 @@ interface FolderType {
 }
 
 // Note Card Component for reuse
-function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange }: { 
+function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, statuses }: { 
   note: Note, 
   isAdmin: boolean, 
   onEdit: () => void, 
   onFavorite: () => void | Promise<void>, 
   onArchive: () => void | Promise<void>, 
   onDelete: () => void | Promise<void>,
-  onStatusChange: (status: 'todo' | 'in-progress' | 'done') => void | Promise<void>,
+  onStatusChange: (status: string) => void | Promise<void>,
+  onColorChange: (color: string) => void | Promise<void>,
+  statuses: StatusOption[],
   key?: string
 }) {
+  const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
+  const [showColorPicker, setShowColorPicker] = useState(false);
+
+  const pastelColors = [
+    { name: 'Default', value: '' },
+    { name: 'Pink', value: '#FFD1DC' },
+    { name: 'Blue', value: '#AEC6CF' },
+    { name: 'Green', value: '#77DD77' },
+    { name: 'Yellow', value: '#FDFD96' },
+    { name: 'Purple', value: '#B39EB5' },
+    { name: 'Orange', value: '#FFB347' },
+    { name: 'Mint', value: '#98FF98' },
+    { name: 'Lavender', value: '#E6E6FA' }
+  ];
+
   return (
     <motion.div 
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      className="group bg-white rounded-[2rem] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 border border-gray-100/50 flex flex-col h-full backdrop-blur-sm"
+      onContextMenu={(e) => {
+        if (isAdmin) {
+          e.preventDefault();
+          setShowColorPicker(true);
+        }
+      }}
+      className="group rounded-[2rem] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 border border-gray-100/50 flex flex-col h-full backdrop-blur-sm relative"
+      style={{ backgroundColor: note.color || '#FFFFFF' }}
     >
+      {showColorPicker && (
+        <div 
+          className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm p-4 flex flex-col items-center justify-center"
+          onClick={() => setShowColorPicker(false)}
+        >
+          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Select Note Color</h4>
+          <div className="grid grid-cols-3 gap-3">
+            {pastelColors.map(c => (
+              <button
+                key={c.value}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onColorChange(c.value);
+                  setShowColorPicker(false);
+                }}
+                className="w-10 h-10 rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform"
+                style={{ backgroundColor: c.value || '#FFFFFF' }}
+                title={c.name}
+              />
+            ))}
+          </div>
+          <button 
+            onClick={() => setShowColorPicker(false)}
+            className="mt-6 text-xs font-bold text-gray-400 hover:text-gray-600"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
       {note.imageUrl && (
         <div className="h-40 overflow-hidden relative">
           <img 
@@ -142,12 +221,8 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-60" />
           <div className="absolute top-3 left-3">
-            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md ${
-              note.status === 'todo' ? 'bg-blue-500/80' : 
-              note.status === 'in-progress' ? 'bg-orange-500/80' : 
-              'bg-green-500/80'
-            }`}>
-              {note.status?.replace('-', ' ') || 'todo'}
+            <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md" style={{ backgroundColor: currentStatus.color + 'CC' }}>
+              {currentStatus.label}
             </span>
           </div>
         </div>
@@ -155,12 +230,8 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
       <div className="p-6 flex-1 flex flex-col">
         {!note.imageUrl && (
           <div className="mb-3">
-            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-              note.status === 'todo' ? 'bg-blue-50 text-blue-500' : 
-              note.status === 'in-progress' ? 'bg-orange-50 text-orange-500' : 
-              'bg-green-50 text-green-500'
-            }`}>
-              {note.status?.replace('-', ' ') || 'todo'}
+            <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white" style={{ backgroundColor: currentStatus.color }}>
+              {currentStatus.label}
             </span>
           </div>
         )}
@@ -205,33 +276,33 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           
           {isAdmin && (
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
-              <div className="flex bg-gray-100 rounded-full p-0.5 mr-1">
-                {(['todo', 'in-progress', 'done'] as const).map((s) => (
+              <div className="flex bg-gray-100/50 rounded-full p-0.5 mr-1 overflow-x-auto max-w-[120px] no-scrollbar">
+                {statuses.map((s) => (
                   <button
-                    key={s}
-                    onClick={() => onStatusChange(s)}
-                    className={`p-1 rounded-full transition-all ${note.status === s ? 'bg-white shadow-sm text-rose-500' : 'text-gray-400 hover:text-gray-600'}`}
-                    title={`Mark as ${s}`}
+                    key={s.id}
+                    onClick={() => onStatusChange(s.id)}
+                    className={`p-1.5 rounded-full transition-all flex-shrink-0 ${note.status === s.id ? 'bg-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                    title={`Mark as ${s.label}`}
                   >
-                    {s === 'todo' ? <Minus size={12} /> : s === 'in-progress' ? <Clock size={12} /> : <CheckCircle2 size={12} />}
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
                   </button>
                 ))}
               </div>
               <button 
                 onClick={onEdit}
-                className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
               >
                 <Edit2 size={14} />
               </button>
               <button 
                 onClick={onArchive}
-                className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
               >
                 <Archive size={14} />
               </button>
               <button 
                 onClick={onDelete}
-                className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
               >
                 <Trash2 size={14} />
               </button>
@@ -292,6 +363,7 @@ function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [showAddFolderModal, setShowAddFolderModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   const [editNoteData, setEditNoteData] = useState<Note | null>(null);
@@ -299,7 +371,17 @@ function AppContent() {
   const [loginPassword, setLoginPassword] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'todo' | 'in-progress' | 'done'>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statuses, setStatuses] = useState<StatusOption[]>([
+    { id: 'todo', label: 'Todo', color: '#3B82F6' },
+    { id: 'in-progress', label: 'In Progress', color: '#F97316' },
+    { id: 'done', label: 'Done', color: '#22C55E' }
+  ]);
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+    defaultFont: 'Inter',
+    defaultSize: '16px',
+    defaultAlignment: 'left'
+  });
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const quillWrapperRef = useRef<HTMLDivElement>(null);
@@ -311,7 +393,8 @@ function AppContent() {
   const [noteTags, setNoteTags] = useState<string[]>([]);
   const [noteDueDate, setNoteDueDate] = useState<string>('');
   const [noteImageUrl, setNoteImageUrl] = useState<string>('');
-  const [noteStatus, setNoteStatus] = useState<'todo' | 'in-progress' | 'done'>('todo');
+  const [noteStatus, setNoteStatus] = useState<string>('todo');
+  const [noteColor, setNoteColor] = useState<string>('');
 
   const handleFirestoreError = (error: any, operationType: OperationType, path: string | null) => {
     const errInfo = {
@@ -375,6 +458,20 @@ function AppContent() {
     return () => unsubscribe();
   }, [user, isAdmin]);
 
+  // Fetch Settings
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+    const sDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
+    const unsubscribe = onSnapshot(sDoc, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.statuses) setStatuses(data.statuses);
+        if (data.userSettings) setUserSettings(data.userSettings);
+      }
+    });
+    return () => unsubscribe();
+  }, [user, isAdmin]);
+
   useEffect(() => {
     if (showAddNoteModal && quillWrapperRef.current) {
       const editor = quillWrapperRef.current.querySelector('.ql-editor');
@@ -383,7 +480,7 @@ function AppContent() {
         return () => editor.removeEventListener('paste', handlePaste);
       }
     }
-  }, [showAddNoteModal]);
+  }, [showAddNoteModal, handlePaste]);
 
   const handleLogin = async () => {
     try {
@@ -421,6 +518,7 @@ function AppContent() {
         dueDate: noteDueDate ? new Date(noteDueDate) : null,
         imageUrl: noteImageUrl,
         status: noteStatus,
+        color: noteColor,
         isFavorite: editNoteData?.isFavorite || false,
         isArchived: editNoteData?.isArchived || false,
         updatedAt: serverTimestamp()
@@ -443,7 +541,7 @@ function AppContent() {
     }
   };
 
-  const handlePaste = (e: any) => {
+  const handlePaste = useCallback((e: any) => {
     const items = (e.clipboardData || e.originalEvent.clipboardData)?.items;
     if (!items) return;
 
@@ -461,16 +559,17 @@ function AppContent() {
         }
       }
     }
-  };
+  }, []);
 
   const resetNoteForm = () => {
     setNoteTitle('');
-    setEditorContent('');
+    setEditorContent(userSettings.defaultAlignment === 'right' ? '<p dir="rtl"></p>' : '');
     setNoteFolderId(null);
     setNoteTags([]);
     setNoteDueDate('');
     setNoteImageUrl('');
-    setNoteStatus('todo');
+    setNoteStatus(statuses[0]?.id || 'todo');
+    setNoteColor('');
   };
 
   const handleAddFolder = async (name: string, parentId: string | null) => {
@@ -506,10 +605,16 @@ function AppContent() {
     await updateDoc(docRef, { isArchived: !note.isArchived });
   };
 
-  const updateNoteStatus = async (noteId: string, newStatus: 'todo' | 'in-progress' | 'done') => {
+  const updateNoteStatus = async (noteId: string, newStatus: string) => {
     if (!isAdmin) return;
     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'notes', noteId);
     await updateDoc(docRef, { status: newStatus, updatedAt: serverTimestamp() });
+  };
+
+  const updateNoteColor = async (noteId: string, color: string) => {
+    if (!isAdmin) return;
+    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'notes', noteId);
+    await updateDoc(docRef, { color, updatedAt: serverTimestamp() });
   };
 
   const deleteNote = async (id: string) => {
@@ -565,10 +670,12 @@ function AppContent() {
   const quillModules = {
     toolbar: [
       [{ 'header': [1, 2, 3, false] }],
+      [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
       ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
       [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'align': [] }],
-      ['link', 'image'],
+      [{ 'direction': 'rtl' }, { 'align': [] }],
+      ['link', 'image', 'video'],
       ['clean'],
       ['table']
     ],
@@ -704,14 +811,21 @@ function AppContent() {
                 <div>
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Filter by Status</h4>
                   <div className="space-y-1">
-                    {(['all', 'todo', 'in-progress', 'done'] as const).map((s) => (
+                    <button 
+                      onClick={() => { setStatusFilter('all'); setShowFilterDropdown(false); }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === 'all' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-50 text-gray-700'}`}
+                    >
+                      <span>All Statuses</span>
+                      {statusFilter === 'all' && <CheckCircle2 size={14} />}
+                    </button>
+                    {statuses.map((s) => (
                       <button 
-                        key={s}
-                        onClick={() => { setStatusFilter(s); setShowFilterDropdown(false); }}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === s ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-50 text-gray-700'}`}
+                        key={s.id}
+                        onClick={() => { setStatusFilter(s.id); setShowFilterDropdown(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === s.id ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-50 text-gray-700'}`}
                       >
-                        <span className="capitalize">{s.replace('-', ' ')}</span>
-                        {statusFilter === s && <CheckCircle2 size={14} />}
+                        <span>{s.label}</span>
+                        {statusFilter === s.id && <CheckCircle2 size={14} />}
                       </button>
                     ))}
                   </div>
@@ -727,6 +841,13 @@ function AppContent() {
                 className="bg-rose-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2"
               >
                 <Plus size={18} /> <span className="hidden sm:inline">New Note</span>
+              </button>
+              <button 
+                onClick={() => setShowSettingsModal(true)}
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition-colors"
+                title="Settings"
+              >
+                <Settings size={20} />
               </button>
               <button 
                 onClick={handleLogout}
@@ -876,21 +997,21 @@ function AppContent() {
 
           {/* Notes Grid or Workflow Board */}
           {viewMode === 'workflow' ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-              {(['todo', 'in-progress', 'done'] as const).map((status) => (
-                <div key={status} className="bg-gray-100/50 rounded-3xl p-4 min-h-[600px] flex flex-col gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
+              {statuses.map((status) => (
+                <div key={status.id} className="bg-gray-100/50 rounded-3xl p-4 min-h-[600px] flex flex-col gap-4">
                   <div className="flex items-center justify-between px-2 mb-2">
                     <h3 className="font-bold text-sm uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${status === 'todo' ? 'bg-blue-400' : status === 'in-progress' ? 'bg-orange-400' : 'bg-green-400'}`} />
-                      {status.replace('-', ' ')}
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: status.color }} />
+                      {status.label}
                     </h3>
                     <span className="bg-white px-2 py-0.5 rounded-full text-[10px] font-bold text-gray-400 shadow-sm">
-                      {filteredNotes.filter(n => n.status === status).length}
+                      {filteredNotes.filter(n => n.status === status.id).length}
                     </span>
                   </div>
                   
                   <div className="flex flex-col gap-4">
-                    {filteredNotes.filter(n => n.status === status).map((note) => (
+                    {filteredNotes.filter(n => n.status === status.id).map((note) => (
                       <NoteCard 
                         key={note.id} 
                         note={note} 
@@ -903,13 +1024,16 @@ function AppContent() {
                           setNoteTags(note.tags);
                           setNoteDueDate(note.dueDate ? format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'yyyy-MM-dd') : '');
                           setNoteImageUrl(note.imageUrl || '');
-                          setNoteStatus(note.status || 'todo');
+                          setNoteStatus(note.status || statuses[0]?.id || 'todo');
+                          setNoteColor(note.color || '');
                           setShowAddNoteModal(true);
                         }}
                         onFavorite={() => toggleFavorite(note)}
                         onArchive={() => toggleArchive(note)}
                         onDelete={() => deleteNote(note.id)}
                         onStatusChange={(s) => updateNoteStatus(note.id, s)}
+                        onColorChange={(c) => updateNoteColor(note.id, c)}
+                        statuses={statuses}
                       />
                     ))}
                   </div>
@@ -932,13 +1056,16 @@ function AppContent() {
                       setNoteTags(note.tags);
                       setNoteDueDate(note.dueDate ? format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'yyyy-MM-dd') : '');
                       setNoteImageUrl(note.imageUrl || '');
-                      setNoteStatus(note.status || 'todo');
+                      setNoteStatus(note.status || statuses[0]?.id || 'todo');
+                      setNoteColor(note.color || '');
                       setShowAddNoteModal(true);
                     }}
                     onFavorite={() => toggleFavorite(note)}
                     onArchive={() => toggleArchive(note)}
                     onDelete={() => deleteNote(note.id)}
                     onStatusChange={(s) => updateNoteStatus(note.id, s)}
+                    onColorChange={(c) => updateNoteColor(note.id, c)}
+                    statuses={statuses}
                   />
                 ))}
               </AnimatePresence>
@@ -1078,12 +1205,24 @@ function AppContent() {
                         <select 
                           className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
                           value={noteStatus}
-                          onChange={(e) => setNoteStatus(e.target.value as any)}
+                          onChange={(e) => setNoteStatus(e.target.value)}
                         >
-                          <option value="todo">To Do</option>
-                          <option value="in-progress">In Progress</option>
-                          <option value="done">Done</option>
+                          {statuses.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                         </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Note Color</label>
+                      <div className="flex flex-wrap gap-2">
+                        {PASTEL_COLORS.map(c => (
+                          <button
+                            key={c.value}
+                            onClick={() => setNoteColor(c.value)}
+                            className={`w-8 h-8 rounded-full border-2 transition-all ${noteColor === c.value ? 'border-rose-500 scale-110 shadow-md' : 'border-white shadow-sm hover:scale-105'}`}
+                            style={{ backgroundColor: c.value || '#FFFFFF' }}
+                            title={c.name}
+                          />
+                        ))}
                       </div>
                     </div>
                     <div>
@@ -1242,6 +1381,26 @@ function AppContent() {
             </motion.div>
           </div>
         )}
+
+        <SettingsModal 
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          statuses={statuses}
+          setStatuses={setStatuses}
+          userSettings={userSettings}
+          setUserSettings={setUserSettings}
+          onSave={async (newStatuses, newSettings) => {
+            const sDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
+            try {
+              await setDoc(sDoc, { statuses: newStatuses, userSettings: newSettings }, { merge: true });
+              setStatuses(newStatuses);
+              setUserSettings(newSettings);
+              setShowSettingsModal(false);
+            } catch (err) {
+              console.error("Error saving settings:", err);
+            }
+          }}
+        />
       </AnimatePresence>
 
       {/* Context Menu */}
@@ -1338,5 +1497,175 @@ function AppContent() {
         }
       `}</style>
     </div>
+  );
+}
+
+// Settings Modal Component
+function SettingsModal({ 
+  isOpen, 
+  onClose, 
+  statuses, 
+  setStatuses, 
+  userSettings, 
+  setUserSettings, 
+  onSave 
+}: { 
+  isOpen: boolean, 
+  onClose: () => void, 
+  statuses: StatusOption[], 
+  setStatuses: React.Dispatch<React.SetStateAction<StatusOption[]>>,
+  userSettings: UserSettings,
+  setUserSettings: React.Dispatch<React.SetStateAction<UserSettings>>,
+  onSave: (statuses: StatusOption[], settings: UserSettings) => Promise<void>
+}) {
+  const [localStatuses, setLocalStatuses] = useState<StatusOption[]>(statuses);
+  const [localSettings, setLocalSettings] = useState<UserSettings>(userSettings);
+
+  useEffect(() => {
+    setLocalStatuses(statuses);
+    setLocalSettings(userSettings);
+  }, [statuses, userSettings]);
+
+  const handleAddStatus = () => {
+    const newId = `status-${Date.now()}`;
+    setLocalStatuses([...localStatuses, { id: newId, label: 'New Status', color: '#94A3B8' }]);
+  };
+
+  const handleRemoveStatus = (id: string) => {
+    if (localStatuses.length <= 1) return;
+    setLocalStatuses(localStatuses.filter(s => s.id !== id));
+  };
+
+  const handleStatusChange = (id: string, field: keyof StatusOption, value: string) => {
+    setLocalStatuses(localStatuses.map(s => s.id === id ? { ...s, [field]: value } : s));
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/60 backdrop-blur-md" 
+            onClick={onClose} 
+          />
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          >
+            <div className="p-6 border-b flex items-center justify-between bg-gray-50">
+              <h2 className="text-2xl font-bold">Settings & Preferences</h2>
+              <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-8 space-y-8">
+              {/* Default Preferences */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Default Preferences</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Default Font</label>
+                    <select 
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.defaultFont}
+                      onChange={(e) => setLocalSettings({ ...localSettings, defaultFont: e.target.value })}
+                    >
+                      <option value="Inter">Inter (Sans)</option>
+                      <option value="JetBrains Mono">JetBrains Mono (Mono)</option>
+                      <option value="Playfair Display">Playfair Display (Serif)</option>
+                      <option value="Outfit">Outfit</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Default Size</label>
+                    <select 
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.defaultSize}
+                      onChange={(e) => setLocalSettings({ ...localSettings, defaultSize: e.target.value })}
+                    >
+                      <option value="14px">Small (14px)</option>
+                      <option value="16px">Normal (16px)</option>
+                      <option value="18px">Large (18px)</option>
+                      <option value="20px">Huge (20px)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Default Alignment</label>
+                    <select 
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.defaultAlignment}
+                      onChange={(e) => setLocalSettings({ ...localSettings, defaultAlignment: e.target.value as any })}
+                    >
+                      <option value="left">Left (LTR)</option>
+                      <option value="right">Right (RTL)</option>
+                      <option value="center">Center</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              {/* Status Customization */}
+              <section className="space-y-4">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Status Titles & Colors</h3>
+                  <button 
+                    onClick={handleAddStatus}
+                    className="flex items-center gap-1 text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
+                  >
+                    <Plus size={14} /> Add Status
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {localStatuses.map((status) => (
+                    <div key={status.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                      <input 
+                        type="color" 
+                        value={status.color}
+                        onChange={(e) => handleStatusChange(status.id, 'color', e.target.value)}
+                        className="w-10 h-10 rounded-lg border-0 p-0 cursor-pointer bg-transparent"
+                      />
+                      <input 
+                        type="text" 
+                        value={status.label}
+                        onChange={(e) => handleStatusChange(status.id, 'label', e.target.value)}
+                        className="flex-1 bg-white border border-gray-200 rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                      />
+                      <button 
+                        onClick={() => handleRemoveStatus(status.id)}
+                        className="p-2 text-gray-400 hover:text-rose-500 transition-colors"
+                        disabled={localStatuses.length <= 1}
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+              <button 
+                onClick={onClose}
+                className="px-6 py-3 bg-white border border-gray-300 rounded-2xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => onSave(localStatuses, localSettings)}
+                className="px-8 py-3 bg-rose-500 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+              >
+                Save Changes
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }
