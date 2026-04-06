@@ -19,6 +19,9 @@ import {
   User
 } from 'firebase/auth';
 import { 
+  Maximize2,
+  Minimize2,
+  ExternalLink,
   Plus, 
   Minus, 
   Settings, 
@@ -130,6 +133,19 @@ interface UserSettings {
   defaultFont: string;
   defaultSize: string;
   defaultAlignment: 'left' | 'center' | 'right' | 'justify';
+  cardViewMode: 'compact' | 'full';
+}
+
+interface ActiveWindow {
+  id: string;
+  noteId: string;
+  type: 'view' | 'edit';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isMinimized: boolean;
+  zIndex: number;
 }
 
 interface FolderType {
@@ -140,7 +156,7 @@ interface FolderType {
 }
 
 // Note Card Component for reuse
-function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, statuses }: { 
+function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, statuses, viewMode, onClick }: { 
   note: Note, 
   isAdmin: boolean, 
   onEdit: () => void, 
@@ -150,6 +166,8 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
   onStatusChange: (status: string) => void | Promise<void>,
   onColorChange: (color: string) => void | Promise<void>,
   statuses: StatusOption[],
+  viewMode: 'compact' | 'full',
+  onClick: () => void,
   key?: string
 }) {
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
@@ -179,8 +197,9 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           setShowColorPicker(true);
         }
       }}
-      className="group rounded-[2rem] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 border border-gray-100/50 flex flex-col h-full backdrop-blur-sm relative"
+      className="group rounded-[2rem] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 border border-gray-100/50 flex flex-col h-full backdrop-blur-sm relative cursor-pointer"
       style={{ backgroundColor: note.color || '#FFFFFF' }}
+      onClick={onClick}
     >
       {showColorPicker && (
         <div 
@@ -248,7 +267,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         </div>
         
         <div 
-          className="text-gray-500 text-sm line-clamp-3 mb-4 flex-1 prose prose-sm max-w-none leading-relaxed"
+          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-sm max-w-none leading-relaxed ${viewMode === 'compact' ? 'line-clamp-3' : ''}`}
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
 
@@ -289,13 +308,13 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
                 ))}
               </div>
               <button 
-                onClick={onEdit}
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
                 className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
               >
                 <Edit2 size={14} />
               </button>
               <button 
-                onClick={onArchive}
+                onClick={(e) => { e.stopPropagation(); onArchive(); }}
                 className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
               >
                 <Archive size={14} />
@@ -351,6 +370,144 @@ export default function App() {
   return <AppContent />;
 }
 
+interface FloatingWindowProps {
+  key?: string | number;
+  window: ActiveWindow;
+  note: Note;
+  onClose: () => void;
+  onMinimize: () => void;
+  onFocus: () => void;
+  onResize: (width: number, height: number) => void;
+  onDrag: (x: number, y: number) => void;
+  isAdmin: boolean;
+  onEdit: () => void;
+  onFavorite: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+  onStatusChange: (status: string) => void;
+  onColorChange: (color: string) => void;
+  statuses: StatusOption[];
+  userSettings: UserSettings;
+}
+
+function FloatingWindow({ 
+  window, 
+  note, 
+  onClose, 
+  onMinimize, 
+  onFocus, 
+  onResize, 
+  onDrag,
+  isAdmin,
+  onEdit,
+  onFavorite,
+  onArchive,
+  onDelete,
+  onStatusChange,
+  onColorChange,
+  statuses,
+  userSettings
+}: FloatingWindowProps) {
+  const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
+
+  if (window.isMinimized) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9, x: window.x, y: window.y }}
+      animate={{ opacity: 1, scale: 1, x: window.x, y: window.y }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      style={{ 
+        width: window.width, 
+        height: window.height, 
+        zIndex: window.zIndex,
+        position: 'fixed',
+        left: 0,
+        top: 0
+      }}
+      className="bg-white rounded-3xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
+      onClick={onFocus}
+    >
+      {/* Header / Drag Handle */}
+      <div 
+        className="p-4 bg-gray-50 border-b flex items-center justify-between cursor-move select-none"
+        onMouseDown={(e) => {
+          const startX = e.clientX - window.x;
+          const startY = e.clientY - window.y;
+          const onMouseMove = (moveEvent: MouseEvent) => {
+            onDrag(moveEvent.clientX - startX, moveEvent.clientY - startY);
+          };
+          const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+          };
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: currentStatus.color }} />
+          <h3 className="font-bold text-sm text-gray-700 truncate max-w-[200px]">{note.title}</h3>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={(e) => { e.stopPropagation(); onMinimize(); }} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors">
+            <Minimize2 size={16} />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-1.5 hover:bg-rose-100 hover:text-rose-500 rounded-lg text-gray-500 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-8 prose prose-sm max-w-none" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: userSettings.defaultAlignment as any }}>
+        <div dangerouslySetInnerHTML={{ __html: note.content }} />
+      </div>
+
+      {/* Footer / Actions */}
+      <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button onClick={onEdit} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+              <Edit2 size={14} /> Edit
+            </button>
+          )}
+          <button onClick={onFavorite} className={`p-1.5 rounded-xl transition-colors ${note.isFavorite ? 'text-yellow-400 bg-yellow-50' : 'text-gray-400 hover:bg-white'}`}>
+            <Star size={16} fill={note.isFavorite ? "currentColor" : "none"} />
+          </button>
+        </div>
+        <div className="text-[10px] font-bold text-gray-400">
+          Last updated: {note.updatedAt ? format(note.updatedAt.toDate(), 'MMM d, HH:mm') : 'Just now'}
+        </div>
+      </div>
+
+      {/* Resize Handles */}
+      <div 
+        className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10"
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          const startWidth = window.width;
+          const startHeight = window.height;
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const onMouseMove = (moveEvent: MouseEvent) => {
+            onResize(
+              Math.max(300, startWidth + (moveEvent.clientX - startX)),
+              Math.max(200, startHeight + (moveEvent.clientY - startY))
+            );
+          };
+          const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+          };
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+        }}
+      />
+    </motion.div>
+  );
+}
+
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -380,8 +537,11 @@ function AppContent() {
   const [userSettings, setUserSettings] = useState<UserSettings>({
     defaultFont: 'Inter',
     defaultSize: '16px',
-    defaultAlignment: 'left'
+    defaultAlignment: 'left',
+    cardViewMode: 'compact'
   });
+  const [activeWindows, setActiveWindows] = useState<ActiveWindow[]>([]);
+  const [maxZIndex, setMaxZIndex] = useState(100);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const quillWrapperRef = useRef<HTMLDivElement>(null);
@@ -395,6 +555,55 @@ function AppContent() {
   const [noteImageUrl, setNoteImageUrl] = useState<string>('');
   const [noteStatus, setNoteStatus] = useState<string>('todo');
   const [noteColor, setNoteColor] = useState<string>('');
+
+  const openWindow = (noteId: string, type: 'view' | 'edit' = 'view') => {
+    const existing = activeWindows.find(w => w.noteId === noteId && w.type === type);
+    if (existing) {
+      focusWindow(existing.id);
+      if (existing.isMinimized) {
+        toggleMinimizeWindow(existing.id);
+      }
+      return;
+    }
+
+    const newZ = maxZIndex + 1;
+    setMaxZIndex(newZ);
+    
+    const newWindow: ActiveWindow = {
+      id: `win-${Date.now()}`,
+      noteId,
+      type,
+      x: 100 + (activeWindows.length * 30) % 300,
+      y: 100 + (activeWindows.length * 30) % 300,
+      width: 600,
+      height: 500,
+      isMinimized: false,
+      zIndex: newZ
+    };
+    setActiveWindows(prev => [...prev, newWindow]);
+  };
+
+  const closeWindow = (id: string) => {
+    setActiveWindows(prev => prev.filter(w => w.id !== id));
+  };
+
+  const focusWindow = (id: string) => {
+    const newZ = maxZIndex + 1;
+    setMaxZIndex(newZ);
+    setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: newZ } : w));
+  };
+
+  const toggleMinimizeWindow = (id: string) => {
+    setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, isMinimized: !w.isMinimized } : w));
+  };
+
+  const updateWindowPos = (id: string, x: number, y: number) => {
+    setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, x, y } : w));
+  };
+
+  const updateWindowSize = (id: string, width: number, height: number) => {
+    setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, width, height } : w));
+  };
 
   const handleFirestoreError = (error: any, operationType: OperationType, path: string | null) => {
     const errInfo = {
@@ -836,6 +1045,23 @@ function AppContent() {
           </div>
 
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-full">
+              <button 
+                onClick={() => setUserSettings(prev => ({ ...prev, cardViewMode: 'compact' }))}
+                className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'compact' ? 'bg-white shadow-sm text-rose-500' : 'text-gray-400 hover:text-gray-600'}`}
+                title="Compact View"
+              >
+                <Grid size={16} />
+              </button>
+              <button 
+                onClick={() => setUserSettings(prev => ({ ...prev, cardViewMode: 'full' }))}
+                className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'full' ? 'bg-white shadow-sm text-rose-500' : 'text-gray-400 hover:text-gray-600'}`}
+                title="Full View"
+              >
+                <List size={16} />
+              </button>
+            </div>
+
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => { setEditNoteData(null); resetNoteForm(); setShowAddNoteModal(true); }}
@@ -1035,6 +1261,8 @@ function AppContent() {
                         onStatusChange={(s) => updateNoteStatus(note.id, s)}
                         onColorChange={(c) => updateNoteColor(note.id, c)}
                         statuses={statuses}
+                        viewMode={userSettings.cardViewMode}
+                        onClick={() => openWindow(note.id)}
                       />
                     ))}
                   </div>
@@ -1067,6 +1295,8 @@ function AppContent() {
                     onStatusChange={(s) => updateNoteStatus(note.id, s)}
                     onColorChange={(c) => updateNoteColor(note.id, c)}
                     statuses={statuses}
+                    viewMode={userSettings.cardViewMode}
+                    onClick={() => openWindow(note.id)}
                   />
                 ))}
               </AnimatePresence>
@@ -1402,6 +1632,64 @@ function AppContent() {
             }
           }}
         />
+
+        {/* Floating Windows */}
+        <AnimatePresence>
+          {activeWindows.map(win => {
+            const note = notes.find(n => n.id === win.noteId);
+            if (!note) return null;
+            return (
+              <FloatingWindow
+                key={win.id}
+                window={win}
+                note={note}
+                onClose={() => closeWindow(win.id)}
+                onMinimize={() => toggleMinimizeWindow(win.id)}
+                onFocus={() => focusWindow(win.id)}
+                onResize={(w, h) => updateWindowSize(win.id, w, h)}
+                onDrag={(x, y) => updateWindowPos(win.id, x, y)}
+                isAdmin={isAdmin}
+                onEdit={() => {
+                  setEditNoteData(note);
+                  setNoteTitle(note.title);
+                  setEditorContent(note.content);
+                  setNoteFolderId(note.folderId);
+                  setNoteTags(note.tags);
+                  setNoteDueDate(note.dueDate ? format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'yyyy-MM-dd') : '');
+                  setNoteImageUrl(note.imageUrl || '');
+                  setNoteStatus(note.status || statuses[0]?.id || 'todo');
+                  setNoteColor(note.color || '');
+                  setShowAddNoteModal(true);
+                }}
+                onFavorite={() => toggleFavorite(note)}
+                onArchive={() => toggleArchive(note)}
+                onDelete={() => deleteNote(note.id)}
+                onStatusChange={(status) => updateNoteStatus(note.id, status)}
+                onColorChange={(color) => updateNoteColor(note.id, color)}
+                statuses={statuses}
+                userSettings={userSettings}
+              />
+            );
+          })}
+        </AnimatePresence>
+
+        {/* Taskbar for Minimized Windows */}
+        {activeWindows.some(w => w.isMinimized) && (
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-[400] bg-white/80 backdrop-blur-md p-2 rounded-2xl shadow-2xl border border-white/50">
+            {activeWindows.filter(w => w.isMinimized).map(win => {
+              const note = notes.find(n => n.id === win.noteId);
+              return (
+                <button
+                  key={win.id}
+                  onClick={() => toggleMinimizeWindow(win.id)}
+                  className="px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition-all flex items-center gap-2"
+                >
+                  <ExternalLink size={14} /> {note?.title || 'Note'}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </AnimatePresence>
 
       {/* Context Menu */}
