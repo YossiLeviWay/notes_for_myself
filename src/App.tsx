@@ -472,6 +472,26 @@ function AppContent() {
     return () => unsubscribe();
   }, [user, isAdmin]);
 
+  const handlePaste = useCallback((e: any) => {
+    const items = (e.clipboardData || e.originalEvent.clipboardData)?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64 = event.target?.result as string;
+            // Find the editor content and append or insert
+            setEditorContent(prev => prev + `<p><img src="${base64}" /></p>`);
+          };
+          reader.readAsDataURL(blob);
+        }
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (showAddNoteModal && quillWrapperRef.current) {
       const editor = quillWrapperRef.current.querySelector('.ql-editor');
@@ -541,25 +561,6 @@ function AppContent() {
     }
   };
 
-  const handlePaste = useCallback((e: any) => {
-    const items = (e.clipboardData || e.originalEvent.clipboardData)?.items;
-    if (!items) return;
-
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        const blob = items[i].getAsFile();
-        if (blob) {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const base64 = event.target?.result as string;
-            // Find the editor content and append or insert
-            setEditorContent(prev => prev + `<p><img src="${base64}" /></p>`);
-          };
-          reader.readAsDataURL(blob);
-        }
-      }
-    }
-  }, []);
 
   const resetNoteForm = () => {
     setNoteTitle('');
