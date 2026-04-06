@@ -12,6 +12,8 @@
         "dueDate": { "type": "string", "format": "date-time", "description": "Optional due date for the note." },
         "isFavorite": { "type": "boolean", "description": "Whether the note is marked as a favorite." },
         "isArchived": { "type": "boolean", "description": "Whether the note is archived." },
+        "isPinned": { "type": "boolean", "description": "Whether the note is pinned to the top." },
+        "size": { "type": "string", "enum": ["sm", "md", "lg"], "description": "The visual size of the note card." },
         "imageUrl": { "type": "string", "description": "Optional URL for an attached image." },
         "status": { "type": "string", "enum": ["todo", "in-progress", "done"], "description": "The workflow status of the note." },
         "createdAt": { "type": "string", "format": "date-time", "description": "When the note was created." },
@@ -31,6 +33,34 @@
         "uid": { "type": "string", "description": "The owner's user ID." }
       },
       "required": ["name", "createdAt", "uid"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A single task entity.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The task description." },
+        "isCompleted": { "type": "boolean", "description": "Whether the task is done." },
+        "isPinned": { "type": "boolean", "description": "Whether the task is pinned." },
+        "listId": { "type": "string", "description": "The ID of the task list it belongs to." },
+        "noteId": { "type": "string", "description": "Optional ID of a linked note." },
+        "dueDate": { "type": "string", "format": "date-time", "description": "Optional due date." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the task was created." },
+        "uid": { "type": "string", "description": "The owner's user ID." }
+      },
+      "required": ["title", "isCompleted", "listId", "createdAt", "uid"]
+    },
+    "TaskList": {
+      "title": "TaskList",
+      "description": "A collection of tasks.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the task list." },
+        "isFavorite": { "type": "boolean", "description": "Whether the list is a favorite." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the list was created." },
+        "uid": { "type": "string", "description": "The owner's user ID." }
+      },
+      "required": ["name", "isFavorite", "createdAt", "uid"]
     }
   },
   "firestore": {
@@ -41,6 +71,14 @@
     "/artifacts/notes-for-myself-app/public/data/folders/{folderId}": {
       "schema": "Folder",
       "description": "Collection of folders."
+    },
+    "/artifacts/notes-for-myself-app/public/data/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Collection of tasks."
+    },
+    "/artifacts/notes-for-myself-app/public/data/taskLists/{listId}": {
+      "schema": "TaskList",
+      "description": "Collection of task lists."
     }
   }
 }

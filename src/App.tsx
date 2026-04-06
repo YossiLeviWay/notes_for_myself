@@ -49,6 +49,8 @@ import {
   Grid,
   List,
   CheckCircle2,
+  CheckSquare,
+  Pin,
   AlertCircle,
   Table as TableIcon,
   Type,
@@ -104,11 +106,34 @@ interface Note {
   dueDate: any;
   isFavorite: boolean;
   isArchived: boolean;
+  isPinned: boolean;
+  size: 'sm' | 'md' | 'lg';
   imageUrl?: string;
   status: string;
   color?: string;
   createdAt: any;
   updatedAt: any;
+  uid: string;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+  isPinned: boolean;
+  listId: string;
+  noteId?: string;
+  dueDate?: any;
+  createdAt: any;
+  uid: string;
+}
+
+interface TaskList {
+  id: string;
+  name: string;
+  isFavorite: boolean;
+  createdAt: any;
+  uid: string;
 }
 
 interface StatusOption {
@@ -119,14 +144,14 @@ interface StatusOption {
 
 const PASTEL_COLORS = [
   { name: 'Default', value: '' },
-  { name: 'Pink', value: '#FFD1DC' },
-  { name: 'Blue', value: '#AEC6CF' },
-  { name: 'Green', value: '#77DD77' },
-  { name: 'Yellow', value: '#FDFD96' },
-  { name: 'Purple', value: '#B39EB5' },
-  { name: 'Orange', value: '#FFB347' },
-  { name: 'Mint', value: '#98FF98' },
-  { name: 'Lavender', value: '#E6E6FA' }
+  { name: 'Pink', value: 'rgba(255, 209, 220, 0.4)' },
+  { name: 'Blue', value: 'rgba(174, 198, 207, 0.4)' },
+  { name: 'Green', value: 'rgba(119, 221, 119, 0.4)' },
+  { name: 'Yellow', value: 'rgba(253, 253, 150, 0.4)' },
+  { name: 'Purple', value: 'rgba(179, 158, 181, 0.4)' },
+  { name: 'Orange', value: 'rgba(255, 179, 71, 0.4)' },
+  { name: 'Mint', value: 'rgba(152, 255, 152, 0.4)' },
+  { name: 'Lavender', value: 'rgba(230, 230, 250, 0.4)' }
 ];
 
 interface UserSettings {
@@ -156,7 +181,7 @@ interface FolderType {
 }
 
 // Note Card Component for reuse
-function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, statuses, viewMode, onClick }: { 
+function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, statuses, viewMode, onClick }: { 
   note: Note, 
   isAdmin: boolean, 
   onEdit: () => void, 
@@ -165,6 +190,8 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
   onDelete: () => void | Promise<void>,
   onStatusChange: (status: string) => void | Promise<void>,
   onColorChange: (color: string) => void | Promise<void>,
+  onPin: () => void | Promise<void>,
+  onSizeChange: (size: 'sm' | 'md' | 'lg') => void | Promise<void>,
   statuses: StatusOption[],
   viewMode: 'compact' | 'full',
   onClick: () => void,
@@ -172,18 +199,13 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
 }) {
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showSizePicker, setShowSizePicker] = useState(false);
 
-  const pastelColors = [
-    { name: 'Default', value: '' },
-    { name: 'Pink', value: '#FFD1DC' },
-    { name: 'Blue', value: '#AEC6CF' },
-    { name: 'Green', value: '#77DD77' },
-    { name: 'Yellow', value: '#FDFD96' },
-    { name: 'Purple', value: '#B39EB5' },
-    { name: 'Orange', value: '#FFB347' },
-    { name: 'Mint', value: '#98FF98' },
-    { name: 'Lavender', value: '#E6E6FA' }
-  ];
+  const sizeClasses = {
+    sm: 'col-span-1 row-span-1 min-h-[200px]',
+    md: 'col-span-1 md:col-span-2 row-span-1 min-h-[250px]',
+    lg: 'col-span-1 md:col-span-2 row-span-2 min-h-[400px]'
+  };
 
   return (
     <motion.div 
@@ -197,18 +219,23 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           setShowColorPicker(true);
         }
       }}
-      className="group rounded-[2rem] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 border border-gray-100/50 flex flex-col h-full backdrop-blur-sm relative cursor-pointer"
+      className={`group rounded-[2rem] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 border border-gray-100/50 flex flex-col backdrop-blur-sm relative cursor-pointer ${sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-2 ring-rose-500 ring-offset-4' : ''}`}
       style={{ backgroundColor: note.color || '#FFFFFF' }}
       onClick={onClick}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('noteId', note.id);
+        e.dataTransfer.effectAllowed = 'link';
+      }}
     >
       {showColorPicker && (
         <div 
           className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm p-4 flex flex-col items-center justify-center"
-          onClick={() => setShowColorPicker(false)}
+          onClick={(e) => { e.stopPropagation(); setShowColorPicker(false); }}
         >
           <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Select Note Color</h4>
           <div className="grid grid-cols-3 gap-3">
-            {pastelColors.map(c => (
+            {PASTEL_COLORS.map(c => (
               <button
                 key={c.value}
                 onClick={(e) => {
@@ -223,15 +250,46 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
             ))}
           </div>
           <button 
-            onClick={() => setShowColorPicker(false)}
+            onClick={(e) => { e.stopPropagation(); setShowColorPicker(false); }}
             className="mt-6 text-xs font-bold text-gray-400 hover:text-gray-600"
           >
             Cancel
           </button>
         </div>
       )}
+
+      {showSizePicker && (
+        <div 
+          className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm p-4 flex flex-col items-center justify-center"
+          onClick={(e) => { e.stopPropagation(); setShowSizePicker(false); }}
+        >
+          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Select Card Size</h4>
+          <div className="flex gap-4">
+            {(['sm', 'md', 'lg'] as const).map(s => (
+              <button
+                key={s}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSizeChange(s);
+                  setShowSizePicker(false);
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${note.size === s ? 'bg-rose-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+              >
+                {s.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setShowSizePicker(false); }}
+            className="mt-6 text-xs font-bold text-gray-400 hover:text-gray-600"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       {note.imageUrl && (
-        <div className="h-40 overflow-hidden relative">
+        <div className={`${note.size === 'lg' ? 'h-64' : 'h-40'} overflow-hidden relative`}>
           <img 
             src={note.imageUrl} 
             alt={note.title} 
@@ -239,26 +297,43 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-60" />
-          <div className="absolute top-3 left-3">
+          <div className="absolute top-3 left-3 flex gap-2">
             <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md" style={{ backgroundColor: currentStatus.color + 'CC' }}>
               {currentStatus.label}
             </span>
+            {note.isPinned && (
+              <span className="bg-rose-500 text-white p-1 rounded-full shadow-lg">
+                <Pin size={10} />
+              </span>
+            )}
           </div>
         </div>
       )}
       <div className="p-6 flex-1 flex flex-col">
         {!note.imageUrl && (
-          <div className="mb-3">
+          <div className="mb-3 flex justify-between items-center">
             <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white" style={{ backgroundColor: currentStatus.color }}>
               {currentStatus.label}
             </span>
+            {note.isPinned && (
+              <span className="text-rose-500">
+                <Pin size={14} />
+              </span>
+            )}
           </div>
         )}
         <div className="flex justify-between items-start mb-3">
-          <h3 className="font-bold text-lg text-gray-900 line-clamp-1 group-hover:text-rose-500 transition-colors">{note.title}</h3>
+          <h3 className={`font-bold text-gray-900 line-clamp-1 group-hover:text-rose-500 transition-colors ${note.size === 'lg' ? 'text-2xl' : 'text-lg'}`}>{note.title}</h3>
           <div className="flex items-center gap-1">
             <button 
-              onClick={onFavorite}
+              onClick={(e) => { e.stopPropagation(); onPin(); }}
+              className={`p-1.5 rounded-full transition-colors ${note.isPinned ? 'text-rose-500 bg-rose-50' : 'text-gray-300 hover:bg-gray-100'}`}
+              title={note.isPinned ? "Unpin Note" : "Pin Note"}
+            >
+              <Pin size={16} fill={note.isPinned ? "currentColor" : "none"} />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onFavorite(); }}
               className={`p-1.5 rounded-full transition-colors ${note.isFavorite ? 'text-yellow-400 bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}
             >
               <Star size={16} fill={note.isFavorite ? "currentColor" : "none"} />
@@ -267,7 +342,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         </div>
         
         <div 
-          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-sm max-w-none leading-relaxed ${viewMode === 'compact' ? 'line-clamp-3' : ''}`}
+          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-sm max-w-none leading-relaxed ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-3' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
 
@@ -282,7 +357,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         <div className="flex items-center justify-between pt-4 border-t border-gray-50">
           <div className="flex items-center gap-3 text-gray-400">
             {note.dueDate && (
-              <div className={`flex items-center gap-1 text-[10px] font-bold ${isBefore(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), new Date()) ? 'text-rose-500' : ''}`}>
+              <div className={`flex items-center gap-1 text-[10px] font-bold ${isAfter(new Date(), note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate)) ? 'text-rose-500' : ''}`}>
                 <Calendar size={12} />
                 {format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'MMM d')}
               </div>
@@ -295,11 +370,18 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           
           {isAdmin && (
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setShowSizePicker(true); }}
+                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+                title="Change Card Size"
+              >
+                <Maximize2 size={14} />
+              </button>
               <div className="flex bg-gray-100/50 rounded-full p-0.5 mr-1 overflow-x-auto max-w-[120px] no-scrollbar">
                 {statuses.map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => onStatusChange(s.id)}
+                    onClick={(e) => { e.stopPropagation(); onStatusChange(s.id); }}
                     className={`p-1.5 rounded-full transition-all flex-shrink-0 ${note.status === s.id ? 'bg-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                     title={`Mark as ${s.label}`}
                   >
@@ -320,7 +402,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
                 <Archive size={14} />
               </button>
               <button 
-                onClick={onDelete}
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
                 className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
               >
                 <Trash2 size={14} />
@@ -508,6 +590,283 @@ function FloatingWindow({
   );
 }
 
+function TaskSidebar({ 
+  isOpen, 
+  onClose, 
+  isPinned, 
+  onTogglePin, 
+  tasks, 
+  taskLists, 
+  activeListId, 
+  onSelectList, 
+  onAddTask, 
+  onToggleTask, 
+  onDeleteTask, 
+  onAddList, 
+  onFavoriteList,
+  onDeleteList,
+  onPinTask,
+  notes
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  isPinned: boolean;
+  onTogglePin: () => void;
+  tasks: Task[];
+  taskLists: TaskList[];
+  activeListId: string | null;
+  onSelectList: (id: string) => void;
+  onAddTask: (title: string) => void;
+  onToggleTask: (id: string, completed: boolean) => void;
+  onDeleteTask: (id: string) => void;
+  onAddList: (name: string) => void;
+  onFavoriteList: (id: string, favorite: boolean) => void;
+  onDeleteList: (id: string) => void;
+  onPinTask: (id: string, pinned: boolean) => void;
+  notes: Note[];
+}) {
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newListName, setNewListName] = useState('');
+  const [showAddList, setShowAddList] = useState(false);
+
+  const activeList = taskLists.find(l => l.id === activeListId);
+  const filteredTasks = tasks.filter(t => t.listId === activeListId);
+  const pinnedTasks = filteredTasks.filter(t => t.isPinned);
+  const unpinnedTasks = filteredTasks.filter(t => !t.isPinned);
+
+  if (!isOpen && !isPinned) return null;
+
+  return (
+    <motion.aside
+      initial={isPinned ? { width: 320 } : { x: 320 }}
+      animate={isPinned ? { width: 320 } : { x: 0 }}
+      exit={isPinned ? { width: 0 } : { x: 320 }}
+      className={`fixed right-0 top-0 h-full bg-white border-l border-gray-100 shadow-2xl z-[250] flex flex-col transition-all duration-300 ${isPinned ? 'relative' : ''}`}
+      style={{ width: 320 }}
+    >
+      <div className="p-6 border-b flex items-center justify-between bg-gray-50/50">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-rose-500 text-white rounded-xl shadow-lg">
+            <CheckSquare size={20} />
+          </div>
+          <h2 className="font-bold text-lg text-gray-900">Tasks</h2>
+        </div>
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={onTogglePin}
+            className={`p-2 rounded-lg transition-colors ${isPinned ? 'text-rose-500 bg-rose-50' : 'text-gray-400 hover:bg-gray-100'}`}
+            title={isPinned ? "Unpin Sidebar" : "Pin Sidebar"}
+          >
+            <Pin size={16} fill={isPinned ? "currentColor" : "none"} />
+          </button>
+          {!isPinned && (
+            <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors">
+              <X size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+        {/* List Selector */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">My Lists</h3>
+            <button 
+              onClick={() => setShowAddList(!showAddList)}
+              className="p-1 text-rose-500 hover:bg-rose-50 rounded-md transition-colors"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+          
+          {showAddList && (
+            <div className="mb-4 flex gap-2">
+              <input 
+                type="text"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                placeholder="New list name..."
+                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newListName.trim()) {
+                    onAddList(newListName.trim());
+                    setNewListName('');
+                    setShowAddList(false);
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          <div className="space-y-1">
+            {taskLists.map(list => (
+              <div key={list.id} className="group flex items-center justify-between">
+                <button
+                  onClick={() => onSelectList(list.id)}
+                  className={`flex-1 text-left px-3 py-2 rounded-xl text-sm font-medium transition-all ${activeListId === list.id ? 'bg-rose-50 text-rose-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  {list.name}
+                </button>
+                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => onFavoriteList(list.id, !list.isFavorite)}
+                    className={`p-1.5 rounded-lg transition-colors ${list.isFavorite ? 'text-yellow-400' : 'text-gray-300 hover:text-yellow-400'}`}
+                  >
+                    <Star size={14} fill={list.isFavorite ? "currentColor" : "none"} />
+                  </button>
+                  {taskLists.length > 1 && (
+                    <button 
+                      onClick={() => onDeleteList(list.id)}
+                      className="p-1.5 text-gray-300 hover:text-rose-500 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Add Task */}
+        <div 
+          className="relative"
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.currentTarget.classList.add('bg-rose-50');
+          }}
+          onDragLeave={(e) => {
+            e.currentTarget.classList.remove('bg-rose-50');
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.currentTarget.classList.remove('bg-rose-50');
+            const noteId = e.dataTransfer.getData('noteId');
+            if (noteId) {
+              const note = notes.find(n => n.id === noteId);
+              if (note) {
+                onAddTask(`Linked: ${note.title}`);
+                // In a real app, we'd also link the ID
+              }
+            }
+          }}
+        >
+          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 hover:border-rose-300 transition-all group">
+            <Plus size={20} className="text-gray-400 group-hover:text-rose-500" />
+            <input 
+              type="text"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              placeholder="Add a task..."
+              className="bg-transparent border-none focus:ring-0 text-sm font-medium w-full placeholder:text-gray-400"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newTaskTitle.trim()) {
+                  onAddTask(newTaskTitle.trim());
+                  setNewTaskTitle('');
+                }
+              }}
+            />
+          </div>
+          <p className="text-[10px] text-gray-400 mt-2 px-2">Tip: Drag a note here to link it as a task</p>
+        </div>
+
+        {/* Task List */}
+        <div className="space-y-6">
+          {pinnedTasks.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-2">
+                <Pin size={10} /> Pinned
+              </h4>
+              <div className="space-y-2">
+                {pinnedTasks.map(task => (
+                  <TaskItem 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={onToggleTask} 
+                    onDelete={onDeleteTask} 
+                    onPin={onPinTask}
+                    note={notes.find(n => n.id === task.noteId)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {unpinnedTasks.map(task => (
+              <TaskItem 
+                key={task.id} 
+                task={task} 
+                onToggle={onToggleTask} 
+                onDelete={onDeleteTask} 
+                onPin={onPinTask}
+                note={notes.find(n => n.id === task.noteId)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </motion.aside>
+  );
+}
+
+interface TaskItemProps {
+  key?: string | number;
+  task: Task;
+  onToggle: (id: string, completed: boolean) => void;
+  onDelete: (id: string) => void;
+  onPin: (id: string, pinned: boolean) => void;
+  note?: Note;
+}
+
+function TaskItem({ 
+  task, 
+  onToggle, 
+  onDelete, 
+  onPin,
+  note
+}: TaskItemProps) { 
+  return (
+    <motion.div 
+      layout
+      className={`group flex items-center gap-3 p-3 rounded-2xl transition-all border ${task.isCompleted ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'}`}
+    >
+      <button 
+        onClick={() => onToggle(task.id, !task.isCompleted)}
+        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${task.isCompleted ? 'bg-rose-500 border-rose-500 text-white' : 'border-gray-200 hover:border-rose-400'}`}
+      >
+        {task.isCompleted && <CheckSquare size={12} />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium truncate ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+          {task.title}
+        </p>
+        {note && (
+          <div className="flex items-center gap-1 mt-1">
+            <ExternalLink size={10} className="text-rose-400" />
+            <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider truncate">Linked Note</span>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button 
+          onClick={() => onPin(task.id, !task.isPinned)}
+          className={`p-1.5 rounded-lg transition-colors ${task.isPinned ? 'text-rose-500 bg-rose-50' : 'text-gray-300 hover:text-rose-500'}`}
+        >
+          <Pin size={14} fill={task.isPinned ? "currentColor" : "none"} />
+        </button>
+        <button 
+          onClick={() => onDelete(task.id)}
+          className="p-1.5 text-gray-300 hover:text-rose-500 rounded-lg transition-colors"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -545,6 +904,27 @@ function AppContent() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const quillWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Task State
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskLists, setTaskLists] = useState<TaskList[]>([]);
+  const [activeTaskListId, setActiveTaskListId] = useState<string | null>(null);
+  const [isTaskSidebarOpen, setIsTaskSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('isTaskSidebarOpen');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [isTaskSidebarPinned, setIsTaskSidebarPinned] = useState(() => {
+    const saved = localStorage.getItem('isTaskSidebarPinned');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('isTaskSidebarOpen', JSON.stringify(isTaskSidebarOpen));
+  }, [isTaskSidebarOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('isTaskSidebarPinned', JSON.stringify(isTaskSidebarPinned));
+  }, [isTaskSidebarPinned]);
 
   // Rich Text Editor State
   const [editorContent, setEditorContent] = useState('');
@@ -603,6 +983,88 @@ function AppContent() {
 
   const updateWindowSize = (id: string, width: number, height: number) => {
     setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, width, height } : w));
+  };
+
+  const handleAddTask = async (title: string, noteId?: string) => {
+    if (!user || !activeTaskListId) return;
+    const path = `artifacts/${appId}/public/data/tasks`;
+    try {
+      await addDoc(collection(db, path), {
+        title,
+        isCompleted: false,
+        isPinned: false,
+        listId: activeTaskListId,
+        noteId: noteId || null,
+        createdAt: serverTimestamp(),
+        uid: user.uid
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  };
+
+  const handleToggleTask = async (id: string, isCompleted: boolean) => {
+    const path = `artifacts/${appId}/public/data/tasks/${id}`;
+    try {
+      await updateDoc(doc(db, path), { isCompleted });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  };
+
+  const handlePinTask = async (id: string, isPinned: boolean) => {
+    const path = `artifacts/${appId}/public/data/tasks/${id}`;
+    try {
+      await updateDoc(doc(db, path), { isPinned });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  };
+
+  const handleDeleteTask = async (id: string) => {
+    const path = `artifacts/${appId}/public/data/tasks/${id}`;
+    try {
+      await deleteDoc(doc(db, path));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  };
+
+  const handleAddTaskList = async (name: string) => {
+    if (!user) return;
+    const path = `artifacts/${appId}/public/data/taskLists`;
+    try {
+      const docRef = await addDoc(collection(db, path), {
+        name,
+        isFavorite: false,
+        createdAt: serverTimestamp(),
+        uid: user.uid
+      });
+      setActiveTaskListId(docRef.id);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  };
+
+  const handleFavoriteTaskList = async (id: string, isFavorite: boolean) => {
+    const path = `artifacts/${appId}/public/data/taskLists/${id}`;
+    try {
+      await updateDoc(doc(db, path), { isFavorite });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  };
+
+  const handleDeleteTaskList = async (id: string) => {
+    const path = `artifacts/${appId}/public/data/taskLists/${id}`;
+    try {
+      await deleteDoc(doc(db, path));
+      if (activeTaskListId === id) {
+        setActiveTaskListId(taskLists.find(l => l.id !== id)?.id || null);
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
   };
 
   const handleFirestoreError = (error: any, operationType: OperationType, path: string | null) => {
@@ -681,6 +1143,37 @@ function AppContent() {
     return () => unsubscribe();
   }, [user, isAdmin]);
 
+  // Fetch Task Lists
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+    const tlCol = collection(db, 'artifacts', appId, 'public', 'data', 'taskLists');
+    const q = query(tlCol, where('uid', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const tls = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskList));
+      setTaskLists(tls.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+      if (tls.length > 0 && !activeTaskListId) {
+        setActiveTaskListId(tls[0].id);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, tlCol.path);
+    });
+    return () => unsubscribe();
+  }, [user, isAdmin, activeTaskListId]);
+
+  // Fetch Tasks
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+    const tCol = collection(db, 'artifacts', appId, 'public', 'data', 'tasks');
+    const q = query(tCol, where('uid', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+      setTasks(ts.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, tCol.path);
+    });
+    return () => unsubscribe();
+  }, [user, isAdmin]);
+
   const handlePaste = useCallback((e: any) => {
     const items = (e.clipboardData || e.originalEvent.clipboardData)?.items;
     if (!items) return;
@@ -736,7 +1229,7 @@ function AppContent() {
   };
 
   const handleAddNote = async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || !user) return;
     const path = `artifacts/${appId}/public/data/notes`;
     try {
       const noteData = {
@@ -750,7 +1243,10 @@ function AppContent() {
         color: noteColor,
         isFavorite: editNoteData?.isFavorite || false,
         isArchived: editNoteData?.isArchived || false,
-        updatedAt: serverTimestamp()
+        isPinned: editNoteData?.isPinned || false,
+        size: editNoteData?.size || 'sm',
+        updatedAt: serverTimestamp(),
+        uid: user.uid
       };
 
       if (editNoteData) {
@@ -768,6 +1264,27 @@ function AppContent() {
     } catch (err) {
       handleFirestoreError(err, editNoteData ? OperationType.UPDATE : OperationType.CREATE, path);
     }
+  };
+
+  const handleUpdateNote = async (id: string, data: Partial<Note>) => {
+    if (!isAdmin) return;
+    const path = `artifacts/${appId}/public/data/notes/${id}`;
+    try {
+      await updateDoc(doc(db, path), {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  };
+
+  const handlePinNote = async (id: string, isPinned: boolean) => {
+    handleUpdateNote(id, { isPinned });
+  };
+
+  const handleSizeNote = async (id: string, size: 'sm' | 'md' | 'lg') => {
+    handleUpdateNote(id, { size });
   };
 
 
@@ -870,6 +1387,14 @@ function AppContent() {
       return !note.isArchived && baseFilter && matchesFolder;
     });
   }, [notes, searchQuery, currentFolderId, selectedTags, viewMode, statusFilter]);
+
+  const sortedNotes = useMemo(() => {
+    return [...filteredNotes].sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+    });
+  }, [filteredNotes]);
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -1064,6 +1589,13 @@ function AppContent() {
 
             <div className="flex items-center gap-3">
               <button 
+                onClick={() => setIsTaskSidebarOpen(!isTaskSidebarOpen)}
+                className={`p-2 rounded-full transition-colors ${isTaskSidebarOpen ? 'bg-rose-500 text-white shadow-lg' : 'hover:bg-gray-100 text-gray-600'}`}
+                title="Tasks"
+              >
+                <CheckSquare size={20} />
+              </button>
+              <button 
                 onClick={() => { setEditNoteData(null); resetNoteForm(); setShowAddNoteModal(true); }}
                 className="bg-rose-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2"
               >
@@ -1238,7 +1770,7 @@ function AppContent() {
                   </div>
                   
                   <div className="flex flex-col gap-4">
-                    {filteredNotes.filter(n => n.status === status.id).map((note) => (
+                    {sortedNotes.filter(n => n.status === status.id).map((note) => (
                       <NoteCard 
                         key={note.id} 
                         note={note} 
@@ -1260,6 +1792,8 @@ function AppContent() {
                         onDelete={() => deleteNote(note.id)}
                         onStatusChange={(s) => updateNoteStatus(note.id, s)}
                         onColorChange={(c) => updateNoteColor(note.id, c)}
+                        onPin={() => handlePinNote(note.id, !note.isPinned)}
+                        onSizeChange={(s) => handleSizeNote(note.id, s)}
                         statuses={statuses}
                         viewMode={userSettings.cardViewMode}
                         onClick={() => openWindow(note.id)}
@@ -1270,9 +1804,9 @@ function AppContent() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-min">
               <AnimatePresence mode="popLayout">
-                {filteredNotes.map((note) => (
+                {sortedNotes.map((note) => (
                   <NoteCard 
                     key={note.id} 
                     note={note} 
@@ -1294,13 +1828,15 @@ function AppContent() {
                     onDelete={() => deleteNote(note.id)}
                     onStatusChange={(s) => updateNoteStatus(note.id, s)}
                     onColorChange={(c) => updateNoteColor(note.id, c)}
+                    onPin={() => handlePinNote(note.id, !note.isPinned)}
+                    onSizeChange={(s) => handleSizeNote(note.id, s)}
                     statuses={statuses}
                     viewMode={userSettings.cardViewMode}
                     onClick={() => openWindow(note.id)}
                   />
                 ))}
               </AnimatePresence>
-              {filteredNotes.length === 0 && (
+              {sortedNotes.length === 0 && (
                 <div className="col-span-full py-20 text-center">
                   <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
                     <Search size={32} />
@@ -1312,6 +1848,25 @@ function AppContent() {
             </div>
           )}
         </main>
+
+        <TaskSidebar 
+          isOpen={isTaskSidebarOpen}
+          onClose={() => setIsTaskSidebarOpen(false)}
+          isPinned={isTaskSidebarPinned}
+          onTogglePin={() => setIsTaskSidebarPinned(!isTaskSidebarPinned)}
+          tasks={tasks}
+          taskLists={taskLists}
+          activeListId={activeTaskListId}
+          onSelectList={setActiveTaskListId}
+          onAddTask={handleAddTask}
+          onToggleTask={handleToggleTask}
+          onDeleteTask={handleDeleteTask}
+          onAddList={handleAddTaskList}
+          onFavoriteList={handleFavoriteTaskList}
+          onDeleteList={handleDeleteTaskList}
+          onPinTask={handlePinTask}
+          notes={notes}
+        />
       </div>
 
       {/* Mobile Sidebar */}
