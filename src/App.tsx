@@ -641,7 +641,7 @@ function TaskSidebar({
       initial={isPinned ? { width: 320 } : { x: 320 }}
       animate={isPinned ? { width: 320 } : { x: 0 }}
       exit={isPinned ? { width: 0 } : { x: 320 }}
-      className={`fixed right-0 top-0 h-full bg-white border-l border-gray-100 shadow-2xl z-[250] flex flex-col transition-all duration-300 ${isPinned ? 'relative' : ''}`}
+      className={`bg-white border-l border-gray-100 flex flex-col transition-all duration-300 z-[250] ${isPinned ? 'relative h-[calc(100vh-80px)] sticky top-20' : 'fixed right-0 top-20 h-[calc(100vh-80px)] shadow-2xl'}`}
       style={{ width: 320 }}
     >
       <div className="p-6 border-b flex items-center justify-between bg-gray-50/50">
@@ -1474,7 +1474,7 @@ function AppContent() {
     <div className="min-h-screen bg-[#F7F7F7] text-[#222222] font-sans selection:bg-rose-100">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 px-4 md:px-8 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(true)}
@@ -1620,9 +1620,9 @@ function AppContent() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto flex">
+      <div className="flex w-full">
         {/* Sidebar - Desktop */}
-        <aside className="hidden md:block w-64 p-6 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto">
+        <aside className="hidden md:block w-64 p-6 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto border-r border-gray-100">
           <nav className="space-y-6">
             <div>
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-2">Navigation</h3>
