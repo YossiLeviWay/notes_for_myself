@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   collection, 
   addDoc, 
@@ -292,13 +292,17 @@ function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [showAddFolderModal, setShowAddFolderModal] = useState(false);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   const [editNoteData, setEditNoteData] = useState<Note | null>(null);
   const [editFolderData, setEditFolderData] = useState<FolderType | null>(null);
   const [loginPassword, setLoginPassword] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'todo' | 'in-progress' | 'done'>('all');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const quillWrapperRef = useRef<HTMLDivElement>(null);
 
   // Rich Text Editor State
   const [editorContent, setEditorContent] = useState('');
@@ -371,6 +375,16 @@ function AppContent() {
     return () => unsubscribe();
   }, [user, isAdmin]);
 
+  useEffect(() => {
+    if (showAddNoteModal && quillWrapperRef.current) {
+      const editor = quillWrapperRef.current.querySelector('.ql-editor');
+      if (editor) {
+        editor.addEventListener('paste', handlePaste);
+        return () => editor.removeEventListener('paste', handlePaste);
+      }
+    }
+  }, [showAddNoteModal]);
+
   const handleLogin = async () => {
     try {
       setAuthError(null);
@@ -429,6 +443,26 @@ function AppContent() {
     }
   };
 
+  const handlePaste = (e: any) => {
+    const items = (e.clipboardData || e.originalEvent.clipboardData)?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const base64 = event.target?.result as string;
+            // Find the editor content and append or insert
+            setEditorContent(prev => prev + `<p><img src="${base64}" /></p>`);
+          };
+          reader.readAsDataURL(blob);
+        }
+      }
+    }
+  };
+
   const resetNoteForm = () => {
     setNoteTitle('');
     setEditorContent('');
@@ -483,24 +517,44 @@ function AppContent() {
     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notes', id));
   };
 
+  const deleteFolder = async (id: string) => {
+    if (!isAdmin || !confirm("Delete this folder? Notes inside will not be deleted but will lose their folder association.")) return;
+    const path = `artifacts/${appId}/public/data/folders`;
+    try {
+      await deleteDoc(doc(db, path, id));
+      // Update notes that were in this folder
+      const notesInFolder = notes.filter(n => n.folderId === id);
+      for (const note of notesInFolder) {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notes', note.id), { folderId: null });
+      }
+      if (currentFolderId === id) setCurrentFolderId(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
+    }
+  };
+
   const filteredNotes = useMemo(() => {
     return notes.filter(note => {
       const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           note.content.toLowerCase().includes(searchQuery.toLowerCase());
+                           note.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           note.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesFolder = currentFolderId ? note.folderId === currentFolderId : true;
       const matchesTags = selectedTags.length > 0 ? selectedTags.every(t => note.tags.includes(t)) : true;
+      const matchesStatus = statusFilter === 'all' ? true : note.status === statusFilter;
       
-      if (viewMode === 'archive') return note.isArchived && matchesSearch && matchesTags;
-      if (viewMode === 'favorites') return note.isFavorite && !note.isArchived && matchesSearch && matchesTags;
+      const baseFilter = matchesSearch && matchesTags && matchesStatus;
+
+      if (viewMode === 'archive') return note.isArchived && baseFilter;
+      if (viewMode === 'favorites') return note.isFavorite && !note.isArchived && baseFilter;
       if (viewMode === 'due') {
         if (!note.dueDate) return false;
         const noteDate = note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate);
-        return isBefore(noteDate, addDays(new Date(), 7)) && !note.isArchived && matchesSearch && matchesTags;
+        return isBefore(noteDate, addDays(new Date(), 7)) && !note.isArchived && baseFilter;
       }
       
-      return !note.isArchived && matchesSearch && matchesFolder && matchesTags;
+      return !note.isArchived && baseFilter && matchesFolder;
     });
-  }, [notes, searchQuery, currentFolderId, selectedTags, viewMode]);
+  }, [notes, searchQuery, currentFolderId, selectedTags, viewMode, statusFilter]);
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -595,7 +649,7 @@ function AppContent() {
           </div>
 
           {/* Search Bar - Airbnb Style */}
-          <div className="hidden md:flex items-center bg-white border border-gray-300 rounded-full py-2 px-4 shadow-sm hover:shadow-md transition-shadow max-w-md w-full mx-4">
+          <div className="hidden md:flex relative items-center bg-white border border-gray-300 rounded-full py-2 px-4 shadow-sm hover:shadow-md transition-shadow max-w-md w-full mx-4">
             <Search size={18} className="text-gray-500 mr-2" />
             <input 
               type="text" 
@@ -605,9 +659,65 @@ function AppContent() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
             <div className="h-6 w-px bg-gray-300 mx-2" />
-            <button className="bg-rose-500 p-2 rounded-full text-white">
+            <button 
+              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+              className={`p-2 rounded-full transition-colors relative ${showFilterDropdown ? 'bg-rose-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+            >
               <Filter size={14} />
+              {statusFilter !== 'all' && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 border-2 border-white rounded-full" />
+              )}
             </button>
+
+            {showFilterDropdown && (
+              <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50">
+                <div className="mb-4">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">View Mode</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      onClick={() => { setViewMode('board'); setShowFilterDropdown(false); }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'board' ? 'bg-rose-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                    >
+                      <Grid size={14} /> Board
+                    </button>
+                    <button 
+                      onClick={() => { setViewMode('favorites'); setShowFilterDropdown(false); }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'favorites' ? 'bg-rose-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                    >
+                      <Star size={14} /> Favorites
+                    </button>
+                    <button 
+                      onClick={() => { setViewMode('due'); setShowFilterDropdown(false); }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'due' ? 'bg-rose-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                    >
+                      <Clock size={14} /> Upcoming
+                    </button>
+                    <button 
+                      onClick={() => { setViewMode('archive'); setShowFilterDropdown(false); }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'archive' ? 'bg-rose-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                    >
+                      <Archive size={14} /> Archive
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Filter by Status</h4>
+                  <div className="space-y-1">
+                    {(['all', 'todo', 'in-progress', 'done'] as const).map((s) => (
+                      <button 
+                        key={s}
+                        onClick={() => { setStatusFilter(s); setShowFilterDropdown(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === s ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-50 text-gray-700'}`}
+                      >
+                        <span className="capitalize">{s.replace('-', ' ')}</span>
+                        {statusFilter === s && <CheckCircle2 size={14} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -684,20 +794,32 @@ function AppContent() {
               <div className="flex items-center justify-between mb-4 px-2">
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Folders</h3>
                 {isAdmin && (
-                  <button onClick={() => setShowAddFolderModal(true)} className="text-rose-500 hover:bg-rose-50 p-1 rounded">
+                  <button 
+                    onClick={() => { setEditFolderData(null); setShowAddFolderModal(true); }} 
+                    className="text-rose-500 hover:bg-rose-50 p-1 rounded transition-colors"
+                    title="New Folder"
+                  >
                     <Plus size={14} />
                   </button>
                 )}
               </div>
               <ul className="space-y-1">
                 {folders.filter(f => !f.parentId).map(folder => (
-                  <li key={folder.id}>
+                  <li key={folder.id} className="group/folder relative">
                     <button 
                       onClick={() => { setCurrentFolderId(folder.id); setViewMode('board'); }}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentFolderId === folder.id ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-100 text-gray-700'}`}
                     >
                       <Folder size={18} /> {folder.name}
                     </button>
+                    {isAdmin && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-rose-500 opacity-0 group-hover/folder:opacity-100 transition-all"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -721,7 +843,14 @@ function AppContent() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-4 md:p-8">
+        <main 
+          className="flex-1 p-4 md:p-8"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setContextMenu({ x: e.clientX, y: e.clientY });
+          }}
+          onClick={() => setContextMenu(null)}
+        >
           <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-3xl font-bold text-gray-900">
@@ -871,7 +1000,14 @@ function AppContent() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Folders</h3>
-                      {isAdmin && <button onClick={() => setShowAddFolderModal(true)} className="text-rose-500"><Plus size={16} /></button>}
+                      {isAdmin && (
+                        <button 
+                          onClick={() => { setShowAddFolderModal(true); setIsSidebarOpen(false); }} 
+                          className="text-rose-500 hover:bg-rose-50 p-1 rounded transition-colors"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      )}
                     </div>
                     <ul className="space-y-2">
                       {folders.map(f => (
@@ -969,7 +1105,31 @@ function AppContent() {
                           value={noteImageUrl}
                           onChange={(e) => setNoteImageUrl(e.target.value)}
                         />
-                        <button className="p-4 bg-gray-100 rounded-2xl text-gray-500 hover:bg-gray-200 transition-colors">
+                        <button 
+                          onClick={async () => {
+                            try {
+                              const clipboardItems = await navigator.clipboard.read();
+                              for (const item of clipboardItems) {
+                                for (const type of item.types) {
+                                  if (type.startsWith('image/')) {
+                                    const blob = await item.getType(type);
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      const base64 = event.target?.result as string;
+                                      setEditorContent(prev => prev + `<p><img src="${base64}" /></p>`);
+                                    };
+                                    reader.readAsDataURL(blob);
+                                  }
+                                }
+                              }
+                            } catch (err) {
+                              console.error("Clipboard access failed:", err);
+                              alert("Please use Ctrl+V (or Cmd+V) to paste images directly into the editor.");
+                            }
+                          }}
+                          className="p-4 bg-gray-100 rounded-2xl text-gray-500 hover:bg-gray-200 transition-colors"
+                          title="Paste image from clipboard"
+                        >
                           <ImageIcon size={20} />
                         </button>
                       </div>
@@ -988,7 +1148,10 @@ function AppContent() {
 
                   <div className="flex flex-col">
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Content</label>
-                    <div className="flex-1 min-h-[300px] border border-gray-200 rounded-2xl overflow-hidden">
+                    <div 
+                      ref={quillWrapperRef}
+                      className="flex-1 min-h-[300px] border border-gray-200 rounded-2xl overflow-hidden"
+                    >
                       <ReactQuill 
                         theme="snow" 
                         value={editorContent} 
@@ -1078,6 +1241,51 @@ function AppContent() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Context Menu */}
+      <AnimatePresence>
+        {contextMenu && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed z-[300] bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 w-48"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button 
+              onClick={() => {
+                setEditNoteData(null);
+                resetNoteForm();
+                if (currentFolderId) setNoteFolderId(currentFolderId);
+                setShowAddNoteModal(true);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-2 hover:bg-rose-50 hover:text-rose-600 text-sm font-bold flex items-center gap-3 transition-colors"
+            >
+              <PlusCircle size={18} /> Add Quick Note
+            </button>
+            <button 
+              onClick={() => {
+                setShowAddFolderModal(true);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-2 hover:bg-rose-50 hover:text-rose-600 text-sm font-bold flex items-center gap-3 transition-colors"
+            >
+              <Folder size={18} /> New Folder
+            </button>
+            <div className="h-px bg-gray-100 my-1" />
+            <button 
+              onClick={() => {
+                setViewMode('board');
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm font-medium flex items-center gap-3 transition-colors"
+            >
+              <Grid size={18} /> All Notes
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 
