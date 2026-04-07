@@ -52,6 +52,9 @@ import {
   CheckSquare,
   Pin,
   AlertCircle,
+  Undo2,
+  Redo2,
+  FolderInput,
   Table as TableIcon,
   Type,
   Bold,
@@ -473,7 +476,7 @@ interface FloatingWindowProps {
 }
 
 function FloatingWindow({ 
-  window, 
+  window: win, 
   note, 
   onClose, 
   onMinimize, 
@@ -491,31 +494,34 @@ function FloatingWindow({
   userSettings
 }: FloatingWindowProps) {
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
-  if (window.isMinimized) return null;
+  if (win.isMinimized) return null;
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9, x: window.x, y: window.y }}
-      animate={{ opacity: 1, scale: 1, x: window.x, y: window.y }}
-      exit={{ opacity: 0, scale: 0.9 }}
+      initial={isMobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9, x: win.x, y: win.y }}
+      animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, x: win.x, y: win.y }}
+      exit={isMobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9 }}
       style={{ 
-        width: window.width, 
-        height: window.height, 
-        zIndex: window.zIndex,
+        width: isMobile ? '100%' : win.width, 
+        height: isMobile ? '100%' : win.height, 
+        zIndex: win.zIndex,
         position: 'fixed',
         left: 0,
-        top: 0
+        top: 0,
+        borderRadius: isMobile ? 0 : '1.5rem'
       }}
-      className="bg-white rounded-3xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
+      className={`bg-white shadow-2xl border border-gray-100 flex flex-col overflow-hidden ${isMobile ? 'inset-0' : ''}`}
       onClick={onFocus}
     >
       {/* Header / Drag Handle */}
       <div 
-        className="p-4 bg-gray-50 border-b flex items-center justify-between cursor-move select-none"
+        className={`p-4 bg-gray-50 border-b flex items-center justify-between select-none ${isMobile ? '' : 'cursor-move'}`}
         onMouseDown={(e) => {
-          const startX = e.clientX - window.x;
-          const startY = e.clientY - window.y;
+          if (isMobile) return;
+          const startX = e.clientX - win.x;
+          const startY = e.clientY - win.y;
           const onMouseMove = (moveEvent: MouseEvent) => {
             onDrag(moveEvent.clientX - startX, moveEvent.clientY - startY);
           };
@@ -532,9 +538,11 @@ function FloatingWindow({
           <h3 className="font-bold text-sm text-gray-700 truncate max-w-[200px]">{note.title}</h3>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={(e) => { e.stopPropagation(); onMinimize(); }} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors">
-            <Minimize2 size={16} />
-          </button>
+          {!isMobile && (
+            <button onClick={(e) => { e.stopPropagation(); onMinimize(); }} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors">
+              <Minimize2 size={16} />
+            </button>
+          )}
           <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-1.5 hover:bg-rose-100 hover:text-rose-500 rounded-lg text-gray-500 transition-colors">
             <X size={16} />
           </button>
@@ -542,7 +550,7 @@ function FloatingWindow({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-8 prose prose-sm max-w-none" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: userSettings.defaultAlignment as any }}>
+      <div className="flex-1 overflow-y-auto p-6 md:p-8 prose prose-sm max-w-none" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: userSettings.defaultAlignment as any }}>
         <div dangerouslySetInnerHTML={{ __html: note.content }} />
       </div>
 
@@ -564,28 +572,30 @@ function FloatingWindow({
       </div>
 
       {/* Resize Handles */}
-      <div 
-        className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10"
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          const startWidth = window.width;
-          const startHeight = window.height;
-          const startX = e.clientX;
-          const startY = e.clientY;
-          const onMouseMove = (moveEvent: MouseEvent) => {
-            onResize(
-              Math.max(300, startWidth + (moveEvent.clientX - startX)),
-              Math.max(200, startHeight + (moveEvent.clientY - startY))
-            );
-          };
-          const onMouseUp = () => {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-          };
-          document.addEventListener('mousemove', onMouseMove);
-          document.addEventListener('mouseup', onMouseUp);
-        }}
-      />
+      {!isMobile && (
+        <div 
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            const startWidth = win.width;
+            const startHeight = win.height;
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const onMouseMove = (moveEvent: MouseEvent) => {
+              onResize(
+                Math.max(300, startWidth + (moveEvent.clientX - startX)),
+                Math.max(200, startHeight + (moveEvent.clientY - startY))
+              );
+            };
+            const onMouseUp = () => {
+              document.removeEventListener('mousemove', onMouseMove);
+              document.removeEventListener('mouseup', onMouseUp);
+            };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+          }}
+        />
+      )}
     </motion.div>
   );
 }
@@ -606,6 +616,8 @@ function TaskSidebar({
   onFavoriteList,
   onDeleteList,
   onPinTask,
+  onUpdateList,
+  onMoveTask,
   notes
 }: {
   isOpen: boolean;
@@ -623,11 +635,15 @@ function TaskSidebar({
   onFavoriteList: (id: string, favorite: boolean) => void;
   onDeleteList: (id: string) => void;
   onPinTask: (id: string, pinned: boolean) => void;
+  onUpdateList: (id: string, name: string) => void;
+  onMoveTask: (taskId: string, listId: string) => void;
   notes: Note[];
 }) {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newListName, setNewListName] = useState('');
   const [showAddList, setShowAddList] = useState(false);
+  const [editingListId, setEditingListId] = useState<string | null>(null);
+  const [editingListName, setEditingListName] = useState('');
 
   const activeList = taskLists.find(l => l.id === activeListId);
   const filteredTasks = tasks.filter(t => t.listId === activeListId);
@@ -702,13 +718,47 @@ function TaskSidebar({
           <div className="space-y-1">
             {taskLists.map(list => (
               <div key={list.id} className="group flex items-center justify-between">
-                <button
-                  onClick={() => onSelectList(list.id)}
-                  className={`flex-1 text-left px-3 py-2 rounded-xl text-sm font-medium transition-all ${activeListId === list.id ? 'bg-rose-50 text-rose-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                >
-                  {list.name}
-                </button>
+                {editingListId === list.id ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={editingListName}
+                    onChange={(e) => setEditingListName(e.target.value)}
+                    onBlur={() => {
+                      if (editingListName.trim() && editingListName !== list.name) {
+                        onUpdateList(list.id, editingListName.trim());
+                      }
+                      setEditingListId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        if (editingListName.trim() && editingListName !== list.name) {
+                          onUpdateList(list.id, editingListName.trim());
+                        }
+                        setEditingListId(null);
+                      }
+                      if (e.key === 'Escape') setEditingListId(null);
+                    }}
+                    className="flex-1 px-3 py-1.5 bg-white border border-rose-300 rounded-xl text-sm focus:outline-none"
+                  />
+                ) : (
+                  <button
+                    onClick={() => onSelectList(list.id)}
+                    className={`flex-1 text-left px-3 py-2 rounded-xl text-sm font-medium transition-all ${activeListId === list.id ? 'bg-rose-50 text-rose-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    {list.name}
+                  </button>
+                )}
                 <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => {
+                      setEditingListId(list.id);
+                      setEditingListName(list.name);
+                    }}
+                    className="p-1.5 text-gray-300 hover:text-rose-500 rounded-lg transition-colors"
+                  >
+                    <Edit2 size={14} />
+                  </button>
                   <button 
                     onClick={() => onFavoriteList(list.id, !list.isFavorite)}
                     className={`p-1.5 rounded-lg transition-colors ${list.isFavorite ? 'text-yellow-400' : 'text-gray-300 hover:text-yellow-400'}`}
@@ -786,6 +836,8 @@ function TaskSidebar({
                     onToggle={onToggleTask} 
                     onDelete={onDeleteTask} 
                     onPin={onPinTask}
+                    onMove={onMoveTask}
+                    taskLists={taskLists}
                     note={notes.find(n => n.id === task.noteId)}
                   />
                 ))}
@@ -801,6 +853,8 @@ function TaskSidebar({
                 onToggle={onToggleTask} 
                 onDelete={onDeleteTask} 
                 onPin={onPinTask}
+                onMove={onMoveTask}
+                taskLists={taskLists}
                 note={notes.find(n => n.id === task.noteId)}
               />
             ))}
@@ -817,6 +871,8 @@ interface TaskItemProps {
   onToggle: (id: string, completed: boolean) => void;
   onDelete: (id: string) => void;
   onPin: (id: string, pinned: boolean) => void;
+  onMove: (taskId: string, listId: string) => void;
+  taskLists: TaskList[];
   note?: Note;
 }
 
@@ -825,8 +881,12 @@ function TaskItem({
   onToggle, 
   onDelete, 
   onPin,
+  onMove,
+  taskLists,
   note
 }: TaskItemProps) { 
+  const [showMoveMenu, setShowMoveMenu] = useState(false);
+
   return (
     <motion.div 
       layout
@@ -849,7 +909,33 @@ function TaskItem({
           </div>
         )}
       </div>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity relative">
+        <button 
+          onClick={() => setShowMoveMenu(!showMoveMenu)}
+          className="p-1.5 text-gray-300 hover:text-rose-500 rounded-lg transition-colors"
+          title="Move to list"
+        >
+          <FolderInput size={14} />
+        </button>
+        
+        {showMoveMenu && (
+          <div className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-[300]">
+            <p className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Move to...</p>
+            {taskLists.filter(l => l.id !== task.listId).map(list => (
+              <button
+                key={list.id}
+                onClick={() => {
+                  onMove(task.id, list.id);
+                  setShowMoveMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-xs hover:bg-rose-50 hover:text-rose-600 transition-colors"
+              >
+                {list.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         <button 
           onClick={() => onPin(task.id, !task.isPinned)}
           className={`p-1.5 rounded-lg transition-colors ${task.isPinned ? 'text-rose-500 bg-rose-50' : 'text-gray-300 hover:text-rose-500'}`}
@@ -905,6 +991,93 @@ function AppContent() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const quillWrapperRef = useRef<HTMLDivElement>(null);
 
+  // History State
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  const addToHistory = useCallback((action: any) => {
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(action);
+      if (newHistory.length > 50) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 49));
+  }, [historyIndex]);
+
+  const handleUndo = useCallback(async () => {
+    if (historyIndex < 0) return;
+    const action = history[historyIndex];
+    
+    try {
+      if (action.type === 'note') {
+        const path = `artifacts/${appId}/public/data/notes`;
+        if (action.action === 'delete') {
+          await setDoc(doc(db, path, action.id), action.data);
+        } else if (action.action === 'create') {
+          await deleteDoc(doc(db, path, action.id));
+        } else if (action.action === 'update') {
+          await updateDoc(doc(db, path, action.id), action.oldData);
+        }
+      } else if (action.type === 'task') {
+        const path = `artifacts/${appId}/public/data/tasks`;
+        if (action.action === 'delete') {
+          await setDoc(doc(db, path, action.id), action.data);
+        } else if (action.action === 'create') {
+          await deleteDoc(doc(db, path, action.id));
+        } else if (action.action === 'update') {
+          await updateDoc(doc(db, path, action.id), action.oldData);
+        }
+      }
+      setHistoryIndex(prev => prev - 1);
+    } catch (err) {
+      console.error("Undo failed:", err);
+    }
+  }, [historyIndex, history]);
+
+  const handleRedo = useCallback(async () => {
+    if (historyIndex >= history.length - 1) return;
+    const action = history[historyIndex + 1];
+    
+    try {
+      if (action.type === 'note') {
+        const path = `artifacts/${appId}/public/data/notes`;
+        if (action.action === 'delete') {
+          await deleteDoc(doc(db, path, action.id));
+        } else if (action.action === 'create') {
+          await setDoc(doc(db, path, action.id), action.data);
+        } else if (action.action === 'update') {
+          await updateDoc(doc(db, path, action.id), action.newData);
+        }
+      } else if (action.type === 'task') {
+        const path = `artifacts/${appId}/public/data/tasks`;
+        if (action.action === 'delete') {
+          await deleteDoc(doc(db, path, action.id));
+        } else if (action.action === 'create') {
+          await setDoc(doc(db, path, action.id), action.data);
+        } else if (action.action === 'update') {
+          await updateDoc(doc(db, path, action.id), action.newData);
+        }
+      }
+      setHistoryIndex(prev => prev + 1);
+    } catch (err) {
+      console.error("Redo failed:", err);
+    }
+  }, [historyIndex, history]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) handleRedo();
+        else handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+
   // Task State
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskLists, setTaskLists] = useState<TaskList[]>([]);
@@ -937,6 +1110,7 @@ function AppContent() {
   const [noteColor, setNoteColor] = useState<string>('');
 
   const openWindow = (noteId: string, type: 'view' | 'edit' = 'view') => {
+    const isMobile = window.innerWidth < 768;
     const existing = activeWindows.find(w => w.noteId === noteId && w.type === type);
     if (existing) {
       focusWindow(existing.id);
@@ -953,10 +1127,10 @@ function AppContent() {
       id: `win-${Date.now()}`,
       noteId,
       type,
-      x: 100 + (activeWindows.length * 30) % 300,
-      y: 100 + (activeWindows.length * 30) % 300,
-      width: 600,
-      height: 500,
+      x: isMobile ? 0 : 100 + (activeWindows.length * 30) % 300,
+      y: isMobile ? 0 : 100 + (activeWindows.length * 30) % 300,
+      width: isMobile ? window.innerWidth : 600,
+      height: isMobile ? window.innerHeight : 500,
       isMinimized: false,
       zIndex: newZ
     };
@@ -989,7 +1163,7 @@ function AppContent() {
     if (!user || !activeTaskListId) return;
     const path = `artifacts/${appId}/public/data/tasks`;
     try {
-      await addDoc(collection(db, path), {
+      const taskData = {
         title,
         isCompleted: false,
         isPinned: false,
@@ -997,7 +1171,9 @@ function AppContent() {
         noteId: noteId || null,
         createdAt: serverTimestamp(),
         uid: user.uid
-      });
+      };
+      const docRef = await addDoc(collection(db, path), taskData);
+      addToHistory({ type: 'task', action: 'create', id: docRef.id, data: taskData });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
     }
@@ -1006,7 +1182,12 @@ function AppContent() {
   const handleToggleTask = async (id: string, isCompleted: boolean) => {
     const path = `artifacts/${appId}/public/data/tasks/${id}`;
     try {
-      await updateDoc(doc(db, path), { isCompleted });
+      const oldTask = tasks.find(t => t.id === id);
+      if (oldTask) {
+        const oldData = { ...oldTask };
+        await updateDoc(doc(db, path), { isCompleted });
+        addToHistory({ type: 'task', action: 'update', id, oldData, newData: { ...oldTask, isCompleted } });
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
@@ -1024,7 +1205,11 @@ function AppContent() {
   const handleDeleteTask = async (id: string) => {
     const path = `artifacts/${appId}/public/data/tasks/${id}`;
     try {
-      await deleteDoc(doc(db, path));
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        await deleteDoc(doc(db, path));
+        addToHistory({ type: 'task', action: 'delete', id, data: task });
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
     }
@@ -1064,6 +1249,24 @@ function AppContent() {
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  };
+
+  const handleUpdateTaskList = async (id: string, name: string) => {
+    const path = `artifacts/${appId}/public/data/taskLists/${id}`;
+    try {
+      await updateDoc(doc(db, path), { name });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  };
+
+  const handleMoveTask = async (taskId: string, listId: string) => {
+    const path = `artifacts/${appId}/public/data/tasks/${taskId}`;
+    try {
+      await updateDoc(doc(db, path), { listId });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
     }
   };
 
@@ -1180,12 +1383,12 @@ function AppContent() {
 
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault(); // Prevent double paste
         const blob = items[i].getAsFile();
         if (blob) {
           const reader = new FileReader();
           reader.onload = (event) => {
             const base64 = event.target?.result as string;
-            // Find the editor content and append or insert
             setEditorContent(prev => prev + `<p><img src="${base64}" /></p>`);
           };
           reader.readAsDataURL(blob);
@@ -1250,14 +1453,17 @@ function AppContent() {
       };
 
       if (editNoteData) {
+        const oldData = { ...editNoteData };
         const docRef = doc(db, path, editNoteData.id);
         await updateDoc(docRef, noteData);
+        addToHistory({ type: 'note', action: 'update', id: editNoteData.id, oldData, newData: noteData });
         setEditNoteData(null);
       } else {
-        await addDoc(collection(db, path), {
+        const docRef = await addDoc(collection(db, path), {
           ...noteData,
           createdAt: serverTimestamp()
         });
+        addToHistory({ type: 'note', action: 'create', id: docRef.id, data: noteData });
       }
       setShowAddNoteModal(false);
       resetNoteForm();
@@ -1270,10 +1476,15 @@ function AppContent() {
     if (!isAdmin) return;
     const path = `artifacts/${appId}/public/data/notes/${id}`;
     try {
-      await updateDoc(doc(db, path), {
-        ...data,
-        updatedAt: serverTimestamp()
-      });
+      const oldNote = notes.find(n => n.id === id);
+      if (oldNote) {
+        const oldData = { ...oldNote };
+        await updateDoc(doc(db, path), {
+          ...data,
+          updatedAt: serverTimestamp()
+        });
+        addToHistory({ type: 'note', action: 'update', id, oldData, newData: { ...oldNote, ...data } });
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
@@ -1345,8 +1556,13 @@ function AppContent() {
   };
 
   const deleteNote = async (id: string) => {
-    if (!isAdmin || !confirm("Delete this note?")) return;
-    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notes', id));
+    if (!isAdmin) return;
+    const note = notes.find(n => n.id === id);
+    if (note) {
+      const path = `artifacts/${appId}/public/data/notes/${id}`;
+      await deleteDoc(doc(db, path));
+      addToHistory({ type: 'note', action: 'delete', id, data: note });
+    }
   };
 
   const deleteFolder = async (id: string) => {
@@ -1483,10 +1699,28 @@ function AppContent() {
               <Menu size={24} />
             </button>
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}>
-              <div className="w-10 h-10 bg-rose-500 rounded-xl flex items-center justify-center text-white">
+              <div className="w-10 h-10 bg-rose-500 rounded-xl flex items-center justify-center text-white shrink-0">
                 <PlusCircle size={24} />
               </div>
-              <h1 className="text-xl font-bold tracking-tight hidden sm:block">Notes For Myself</h1>
+              <h1 className="text-xl font-bold tracking-tight hidden sm:block truncate">Notes For Myself</h1>
+            </div>
+            <div className="hidden md:flex items-center gap-1 ml-2 border-l pl-4 border-gray-200">
+              <button 
+                onClick={handleUndo}
+                disabled={historyIndex < 0}
+                className={`p-2 rounded-xl transition-all ${historyIndex < 0 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100 hover:text-rose-500'}`}
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo2 size={20} />
+              </button>
+              <button 
+                onClick={handleRedo}
+                disabled={historyIndex >= history.length - 1}
+                className={`p-2 rounded-xl transition-all ${historyIndex >= history.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100 hover:text-rose-500'}`}
+                title="Redo (Ctrl+Y)"
+              >
+                <Redo2 size={20} />
+              </button>
             </div>
           </div>
 
@@ -1865,6 +2099,8 @@ function AppContent() {
           onFavoriteList={handleFavoriteTaskList}
           onDeleteList={handleDeleteTaskList}
           onPinTask={handlePinTask}
+          onUpdateList={handleUpdateTaskList}
+          onMoveTask={handleMoveTask}
           notes={notes}
         />
       </div>
@@ -1952,7 +2188,7 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              className="relative bg-white w-full max-w-4xl rounded-none md:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-full md:h-auto md:max-h-[90vh]"
             >
               <div className="p-6 border-b flex items-center justify-between bg-gray-50">
                 <h2 className="text-2xl font-bold">{editNoteData ? 'Edit Note' : 'Create New Note'}</h2>
@@ -2230,7 +2466,7 @@ function AppContent() {
 
         {/* Taskbar for Minimized Windows */}
         {activeWindows.some(w => w.isMinimized) && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-[400] bg-white/80 backdrop-blur-md p-2 rounded-2xl shadow-2xl border border-white/50">
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-[400] bg-white/80 backdrop-blur-md p-2 rounded-2xl shadow-2xl border border-white/50 hidden md:flex">
             {activeWindows.filter(w => w.isMinimized).map(win => {
               const note = notes.find(n => n.id === win.noteId);
               return (
