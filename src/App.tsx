@@ -52,6 +52,7 @@ import {
   CheckCircle2,
   CheckSquare,
   Pin,
+  Bell,
   AlertCircle,
   Undo2,
   Redo2,
@@ -165,6 +166,9 @@ interface UserSettings {
   defaultSize: string;
   defaultAlignment: 'left' | 'center' | 'right' | 'justify';
   cardViewMode: 'compact' | 'full';
+  defaultFolderId: string | null;
+  defaultTaskListId: string | null;
+  enableNotifications: boolean;
 }
 
 interface ActiveWindow {
@@ -349,7 +353,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         </div>
         
         <div 
-          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-words w-full ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
+          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-words w-full overflow-hidden ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5 max-h-[7.5rem]' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
           dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
           style={{ textAlign: note.alignment || 'start' }}
           dangerouslySetInnerHTML={{ __html: note.content }}
@@ -663,7 +667,8 @@ function TaskSidebar({
   onUpdateTask,
   onUpdateList,
   onMoveTask,
-  notes
+  notes,
+  onOpenNote
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -684,6 +689,7 @@ function TaskSidebar({
   onUpdateList: (id: string, name: string) => void;
   onMoveTask: (taskId: string, listId: string) => void;
   notes: Note[];
+  onOpenNote: (noteId: string) => void;
 }) {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newListName, setNewListName] = useState('');
@@ -886,6 +892,7 @@ function TaskSidebar({
                     onUpdate={onUpdateTask}
                     taskLists={taskLists}
                     note={notes.find(n => n.id === task.noteId)}
+                    onClick={() => task.noteId && onOpenNote(task.noteId)}
                   />
                 ))}
               </div>
@@ -904,6 +911,7 @@ function TaskSidebar({
                 onUpdate={onUpdateTask}
                 taskLists={taskLists}
                 note={notes.find(n => n.id === task.noteId)}
+                onClick={() => task.noteId && onOpenNote(task.noteId)}
               />
             ))}
           </div>
@@ -922,6 +930,7 @@ interface TaskItemProps {
   onMove: (taskId: string, listId: string) => void;
   taskLists: TaskList[];
   note?: Note;
+  onClick?: () => void;
 }
 
 function TaskItem({ 
@@ -932,7 +941,8 @@ function TaskItem({
   onMove,
   taskLists,
   note,
-  onUpdate
+  onUpdate,
+  onClick
 }: TaskItemProps & { onUpdate?: (id: string, data: Partial<Task>) => void }) { 
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -948,10 +958,13 @@ function TaskItem({
   return (
     <motion.div 
       layout
-      className={`group flex items-start gap-3 p-3 rounded-2xl transition-all border ${task.isCompleted ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'}`}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`group flex items-start gap-3 p-3 rounded-2xl transition-all border ${task.isCompleted ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'} ${task.noteId ? 'cursor-pointer' : ''}`}
+      onClick={() => task.noteId && note && onClick?.()}
     >
       <button 
-        onClick={() => onToggle(task.id, !task.isCompleted)}
+        onClick={(e) => { e.stopPropagation(); onToggle(task.id, !task.isCompleted); }}
         className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${task.isCompleted ? 'bg-rose-500 border-rose-500 text-white' : 'border-gray-200 hover:border-rose-400'}`}
       >
         {task.isCompleted && <CheckSquare size={12} />}
@@ -1073,7 +1086,10 @@ function AppContent() {
     defaultFont: 'Inter',
     defaultSize: '16px',
     defaultAlignment: 'left',
-    cardViewMode: 'compact'
+    cardViewMode: 'compact',
+    defaultFolderId: null,
+    defaultTaskListId: null,
+    enableNotifications: false
   });
   const [activeWindows, setActiveWindows] = useState<ActiveWindow[]>([]);
   const [maxZIndex, setMaxZIndex] = useState(100);
@@ -1272,6 +1288,62 @@ function AppContent() {
       addToHistory({ type: 'task', action: 'create', id: docRef.id, data: taskData });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  };
+
+  // Notification Logic
+  useEffect(() => {
+    if (!userSettings.enableNotifications || !("Notification" in window)) return;
+
+    const checkDueDates = () => {
+      const now = new Date();
+      notes.forEach(note => {
+        if (note.dueDate && !note.isArchived) {
+          const due = note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate);
+          const diff = due.getTime() - now.getTime();
+          // Notify if due in the next 15 minutes and not already notified
+          if (diff > 0 && diff < 15 * 60 * 1000) {
+            const notifiedKey = `notified_note_${note.id}`;
+            if (!localStorage.getItem(notifiedKey)) {
+              new Notification("Note Reminder", {
+                body: `Note "${note.title}" is due soon!`,
+                icon: "/favicon.ico"
+              });
+              localStorage.setItem(notifiedKey, "true");
+            }
+          }
+        }
+      });
+
+      tasks.forEach(task => {
+        if (task.dueDate && !task.isCompleted) {
+          const due = task.dueDate.toDate ? task.dueDate.toDate() : new Date(task.dueDate);
+          const diff = due.getTime() - now.getTime();
+          if (diff > 0 && diff < 15 * 60 * 1000) {
+            const notifiedKey = `notified_task_${task.id}`;
+            if (!localStorage.getItem(notifiedKey)) {
+              new Notification("Task Reminder", {
+                body: `Task "${task.title}" is due soon!`,
+                icon: "/favicon.ico"
+              });
+              localStorage.setItem(notifiedKey, "true");
+            }
+          }
+        }
+      });
+    };
+
+    const interval = setInterval(checkDueDates, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [notes, tasks, userSettings.enableNotifications]);
+
+  const requestNotificationPermission = async () => {
+    if (!("Notification" in window)) return;
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      setUserSettings(prev => ({ ...prev, enableNotifications: true }));
+    } else {
+      setUserSettings(prev => ({ ...prev, enableNotifications: false }));
     }
   };
 
@@ -1627,7 +1699,7 @@ function AppContent() {
   const resetNoteForm = () => {
     setNoteTitle('');
     setEditorContent(userSettings.defaultAlignment === 'right' ? '<p dir="rtl"></p>' : '');
-    setNoteFolderId(null);
+    setNoteFolderId(userSettings.defaultFolderId);
     setNoteTags([]);
     setNoteDueDate('');
     setNoteImageUrl('');
@@ -1957,9 +2029,11 @@ function AppContent() {
               </button>
               <button 
                 onClick={() => { setEditNoteData(null); resetNoteForm(); setShowAddNoteModal(true); }}
-                className="bg-rose-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2"
+                className="bg-rose-500 text-white p-2 sm:px-4 sm:py-2 rounded-full text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2 group"
+                title="New Note"
               >
-                <Plus size={18} /> <span className="hidden sm:inline">New Note</span>
+                <Plus size={18} className="group-hover:rotate-90 transition-transform" /> 
+                <span className="hidden md:inline">New Note</span>
               </button>
               <button 
                 onClick={() => setShowSettingsModal(true)}
@@ -2229,6 +2303,7 @@ function AppContent() {
           onUpdateList={handleUpdateTaskList}
           onMoveTask={handleMoveTask}
           notes={notes}
+          onOpenNote={(noteId) => openWindow(noteId)}
         />
       </div>
 
@@ -2557,6 +2632,9 @@ function AppContent() {
           setStatuses={setStatuses}
           userSettings={userSettings}
           setUserSettings={setUserSettings}
+          folders={folders}
+          taskLists={taskLists}
+          requestNotificationPermission={requestNotificationPermission}
           onSave={async (newStatuses, newSettings) => {
             const sDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
             try {
@@ -2735,7 +2813,10 @@ function SettingsModal({
   setStatuses, 
   userSettings, 
   setUserSettings, 
-  onSave 
+  onSave,
+  folders,
+  taskLists,
+  requestNotificationPermission
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
@@ -2743,7 +2824,10 @@ function SettingsModal({
   setStatuses: React.Dispatch<React.SetStateAction<StatusOption[]>>,
   userSettings: UserSettings,
   setUserSettings: React.Dispatch<React.SetStateAction<UserSettings>>,
-  onSave: (statuses: StatusOption[], settings: UserSettings) => Promise<void>
+  onSave: (statuses: StatusOption[], settings: UserSettings) => Promise<void>,
+  folders: FolderType[],
+  taskLists: TaskList[],
+  requestNotificationPermission: () => Promise<void>
 }) {
   const [localStatuses, setLocalStatuses] = useState<StatusOption[]>(statuses);
   const [localSettings, setLocalSettings] = useState<UserSettings>(userSettings);
@@ -2833,6 +2917,57 @@ function SettingsModal({
                       <option value="right">Right (RTL)</option>
                       <option value="center">Center</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Default Folder</label>
+                    <select 
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.defaultFolderId || ''}
+                      onChange={(e) => setLocalSettings({ ...localSettings, defaultFolderId: e.target.value || null })}
+                    >
+                      <option value="">No Default Folder</option>
+                      {folders.map(f => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Default Task List</label>
+                    <select 
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.defaultTaskListId || ''}
+                      onChange={(e) => setLocalSettings({ ...localSettings, defaultTaskListId: e.target.value || null })}
+                    >
+                      <option value="">No Default List</option>
+                      {taskLists.map(l => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="md:col-span-3">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${localSettings.enableNotifications ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-500'}`}>
+                          <Bell size={20} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-gray-700">Desktop Notifications</p>
+                          <p className="text-xs text-gray-500">Get notified about due tasks and notes</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          if (!localSettings.enableNotifications) {
+                            requestNotificationPermission();
+                          } else {
+                            setLocalSettings({ ...localSettings, enableNotifications: false });
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${localSettings.enableNotifications ? 'bg-emerald-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                      >
+                        {localSettings.enableNotifications ? 'Enabled' : 'Enable'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
