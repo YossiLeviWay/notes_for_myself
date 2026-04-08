@@ -45,6 +45,7 @@ import {
   Star,
   Clock,
   MoreVertical,
+  MoreHorizontal,
   Filter,
   Grid,
   List,
@@ -63,6 +64,7 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  AlignJustify,
   List as ListIcon,
   ListOrdered
 } from 'lucide-react';
@@ -117,6 +119,7 @@ interface Note {
   createdAt: any;
   updatedAt: any;
   uid: string;
+  alignment?: 'left' | 'center' | 'right' | 'justify';
 }
 
 interface Task {
@@ -347,6 +350,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         
         <div 
           className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-words w-full ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
+          style={{ textAlign: note.alignment || 'left', direction: (note.alignment || 'left') === 'right' ? 'rtl' : 'ltr' }}
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
 
@@ -581,7 +585,7 @@ function FloatingWindow({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-12 prose prose-lg max-w-none break-words w-full" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: userSettings.defaultAlignment as any }}>
+      <div className="flex-1 overflow-y-auto p-4 md:p-12 prose prose-lg max-w-none break-words w-full" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: note.alignment || userSettings.defaultAlignment, direction: (note.alignment || userSettings.defaultAlignment) === 'right' ? 'rtl' : 'ltr' }}>
         <div dangerouslySetInnerHTML={{ __html: note.content }} />
       </div>
 
@@ -647,6 +651,7 @@ function TaskSidebar({
   onFavoriteList,
   onDeleteList,
   onPinTask,
+  onUpdateTask,
   onUpdateList,
   onMoveTask,
   notes
@@ -666,6 +671,7 @@ function TaskSidebar({
   onFavoriteList: (id: string, favorite: boolean) => void;
   onDeleteList: (id: string) => void;
   onPinTask: (id: string, pinned: boolean) => void;
+  onUpdateTask: (id: string, data: Partial<Task>) => void;
   onUpdateList: (id: string, name: string) => void;
   onMoveTask: (taskId: string, listId: string) => void;
   notes: Note[];
@@ -868,6 +874,7 @@ function TaskSidebar({
                     onDelete={onDeleteTask} 
                     onPin={onPinTask}
                     onMove={onMoveTask}
+                    onUpdate={onUpdateTask}
                     taskLists={taskLists}
                     note={notes.find(n => n.id === task.noteId)}
                   />
@@ -885,6 +892,7 @@ function TaskSidebar({
                 onDelete={onDeleteTask} 
                 onPin={onPinTask}
                 onMove={onMoveTask}
+                onUpdate={onUpdateTask}
                 taskLists={taskLists}
                 note={notes.find(n => n.id === task.noteId)}
               />
@@ -914,71 +922,113 @@ function TaskItem({
   onPin,
   onMove,
   taskLists,
-  note
-}: TaskItemProps) { 
-  const [showMoveMenu, setShowMoveMenu] = useState(false);
+  note,
+  onUpdate
+}: TaskItemProps & { onUpdate?: (id: string, data: Partial<Task>) => void }) { 
+  const [showMenu, setShowMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+
+  const handleUpdate = () => {
+    if (onUpdate && editTitle.trim()) {
+      onUpdate(task.id, { title: editTitle.trim() });
+      setIsEditing(false);
+    }
+  };
 
   return (
     <motion.div 
       layout
-      className={`group flex items-center gap-3 p-3 rounded-2xl transition-all border ${task.isCompleted ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'}`}
+      className={`group flex items-start gap-3 p-3 rounded-2xl transition-all border ${task.isCompleted ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'}`}
     >
       <button 
         onClick={() => onToggle(task.id, !task.isCompleted)}
-        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${task.isCompleted ? 'bg-rose-500 border-rose-500 text-white' : 'border-gray-200 hover:border-rose-400'}`}
+        className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${task.isCompleted ? 'bg-rose-500 border-rose-500 text-white' : 'border-gray-200 hover:border-rose-400'}`}
       >
         {task.isCompleted && <CheckSquare size={12} />}
       </button>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium break-words w-full ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
-          {task.title}
-        </p>
-        {note && (
-          <div className="flex items-center gap-1 mt-1">
-            <ExternalLink size={10} className="text-rose-400" />
-            <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider truncate">Linked Note</span>
+        {isEditing ? (
+          <div className="flex flex-col gap-2">
+            <input 
+              autoFocus
+              className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleUpdate();
+                if (e.key === 'Escape') { setIsEditing(false); setEditTitle(task.title); }
+              }}
+            />
+            <div className="flex gap-2">
+              <button onClick={handleUpdate} className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Save</button>
+              <button onClick={() => { setIsEditing(false); setEditTitle(task.title); }} className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cancel</button>
+            </div>
           </div>
+        ) : (
+          <>
+            <p className={`text-sm font-medium break-words w-full leading-relaxed ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+              {task.title}
+            </p>
+            {note && (
+              <div className="flex items-center gap-1 mt-1">
+                <ExternalLink size={10} className="text-rose-400" />
+                <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider truncate">Linked Note</span>
+              </div>
+            )}
+          </>
         )}
       </div>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity relative">
+      <div className="relative shrink-0">
         <button 
-          onClick={() => setShowMoveMenu(!showMoveMenu)}
+          onClick={() => setShowMenu(!showMenu)}
           className="p-1.5 text-gray-300 hover:text-rose-500 rounded-lg transition-colors"
-          title="Move to list"
+          title="More options"
         >
-          <FolderInput size={14} />
+          <MoreHorizontal size={16} />
         </button>
-        
-        {showMoveMenu && (
-          <div className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-[300]">
-            <p className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Move to...</p>
-            {taskLists.filter(l => l.id !== task.listId).map(list => (
-              <button
-                key={list.id}
-                onClick={() => {
-                  onMove(task.id, list.id);
-                  setShowMoveMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-xs hover:bg-rose-50 hover:text-rose-600 transition-colors"
-              >
-                {list.name}
-              </button>
-            ))}
-          </div>
-        )}
 
-        <button 
-          onClick={() => onPin(task.id, !task.isPinned)}
-          className={`p-1.5 rounded-lg transition-colors ${task.isPinned ? 'text-rose-500 bg-rose-50' : 'text-gray-300 hover:text-rose-500'}`}
-        >
-          <Pin size={14} fill={task.isPinned ? "currentColor" : "none"} />
-        </button>
-        <button 
-          onClick={() => onDelete(task.id)}
-          className="p-1.5 text-gray-300 hover:text-rose-500 rounded-lg transition-colors"
-        >
-          <Trash2 size={14} />
-        </button>
+        {showMenu && (
+          <>
+            <div className="fixed inset-0 z-[100]" onClick={() => setShowMenu(false)} />
+            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-[101]">
+              <button 
+                onClick={() => { onPin(task.id, !task.isPinned); setShowMenu(false); }}
+                className="w-full px-4 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <Pin size={14} className={task.isPinned ? 'text-rose-500' : ''} fill={task.isPinned ? "currentColor" : "none"} />
+                {task.isPinned ? 'Unpin Task' : 'Pin Task'}
+              </button>
+              <button 
+                onClick={() => { setIsEditing(true); setShowMenu(false); }}
+                className="w-full px-4 py-2 text-left text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <Edit2 size={14} />
+                Edit Task
+              </button>
+              <div className="h-px bg-gray-100 my-1" />
+              <div className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Move to List</div>
+              {taskLists.map(list => (
+                <button
+                  key={list.id}
+                  onClick={() => { onMove(task.id, list.id); setShowMenu(false); }}
+                  className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${task.listId === list.id ? 'text-rose-500 font-bold' : 'text-gray-600'}`}
+                >
+                  <FolderInput size={14} />
+                  {list.name}
+                </button>
+              ))}
+              <div className="h-px bg-gray-100 my-1" />
+              <button 
+                onClick={() => { onDelete(task.id); setShowMenu(false); }}
+                className="w-full px-4 py-2 text-left text-sm text-rose-500 hover:bg-rose-50 flex items-center gap-2"
+              >
+                <Trash2 size={14} />
+                Delete Task
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </motion.div>
   );
@@ -1139,6 +1189,7 @@ function AppContent() {
   const [noteImageUrl, setNoteImageUrl] = useState<string>('');
   const [noteStatus, setNoteStatus] = useState<string>('todo');
   const [noteColor, setNoteColor] = useState<string>('');
+  const [noteAlignment, setNoteAlignment] = useState<'left' | 'center' | 'right' | 'justify'>('left');
 
   const openWindow = (noteId: string, type: 'view' | 'edit' = 'view') => {
     const isMobile = window.innerWidth < 768;
@@ -1224,6 +1275,19 @@ function AppContent() {
         await updateDoc(doc(db, path), { isCompleted });
         addToHistory({ type: 'task', action: 'update', id, oldData, newData: { ...oldTask, isCompleted } });
       }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  };
+
+  const handleUpdateTask = async (id: string, data: Partial<Task>) => {
+    if (!user || !isAdmin) return;
+    const path = `artifacts/${appId}/public/data/tasks/${id}`;
+    try {
+      await updateDoc(doc(db, path), {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
@@ -1443,6 +1507,21 @@ function AppContent() {
     }
   }, [showAddNoteModal, handlePaste]);
 
+  useEffect(() => {
+    if (editNoteData) {
+      setNoteTitle(editNoteData.title);
+      setEditorContent(editNoteData.content);
+      setNoteFolderId(editNoteData.folderId);
+      setNoteTags(editNoteData.tags);
+      setNoteDueDate(editNoteData.dueDate ? (editNoteData.dueDate.toDate ? format(editNoteData.dueDate.toDate(), 'yyyy-MM-dd') : format(new Date(editNoteData.dueDate), 'yyyy-MM-dd')) : '');
+      setNoteImageUrl(editNoteData.imageUrl || '');
+      setNoteStatus(editNoteData.status);
+      setNoteColor(editNoteData.color || '');
+      setNoteAlignment(editNoteData.alignment || userSettings.defaultAlignment);
+      setShowAddNoteModal(true);
+    }
+  }, [editNoteData, userSettings.defaultAlignment]);
+
   const handleLogin = async () => {
     try {
       setAuthError(null);
@@ -1484,6 +1563,7 @@ function AppContent() {
         isArchived: editNoteData?.isArchived || false,
         isPinned: editNoteData?.isPinned || false,
         size: editNoteData?.size || 'sm',
+        alignment: noteAlignment,
         updatedAt: serverTimestamp(),
         uid: user.uid
       };
@@ -1544,6 +1624,7 @@ function AppContent() {
     setNoteImageUrl('');
     setNoteStatus(statuses[0]?.id || 'todo');
     setNoteColor('');
+    setNoteAlignment(userSettings.defaultAlignment);
   };
 
   const handleAddFolder = async (name: string, parentId: string | null) => {
@@ -2135,6 +2216,7 @@ function AppContent() {
           onFavoriteList={handleFavoriteTaskList}
           onDeleteList={handleDeleteTaskList}
           onPinTask={handlePinTask}
+          onUpdateTask={handleUpdateTask}
           onUpdateList={handleUpdateTaskList}
           onMoveTask={handleMoveTask}
           notes={notes}
@@ -2329,6 +2411,23 @@ function AppContent() {
                         >
                           <ImageIcon size={20} />
                         </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Alignment</label>
+                      <div className="flex gap-2">
+                        {(['left', 'center', 'right', 'justify'] as const).map(align => (
+                          <button
+                            key={align}
+                            onClick={() => setNoteAlignment(align)}
+                            className={`flex-1 p-3 rounded-xl border-2 transition-all flex items-center justify-center ${noteAlignment === align ? 'border-rose-500 bg-rose-50 text-rose-500' : 'border-gray-100 text-gray-400 hover:bg-gray-50'}`}
+                          >
+                            {align === 'left' && <AlignLeft size={18} />}
+                            {align === 'center' && <AlignCenter size={18} />}
+                            {align === 'right' && <AlignRight size={18} />}
+                            {align === 'justify' && <AlignJustify size={18} />}
+                          </button>
+                        ))}
                       </div>
                     </div>
                     <div>
