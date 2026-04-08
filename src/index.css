@@ -29,3 +29,15 @@
   height: auto;
   border-radius: 0.75rem;
 }
+
+/* Quill Alignment Classes */
+.ql-align-center { text-align: center !important; }
+.ql-align-right { text-align: right !important; }
+.ql-align-justify { text-align: justify !important; }
+.ql-direction-rtl { direction: rtl !important; }
+.ql-direction-ltr { direction: ltr !important; }
+
+/* Ensure prose respects alignment */
+.prose {
+  text-align: inherit;
+}

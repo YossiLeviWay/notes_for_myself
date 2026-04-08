@@ -350,7 +350,8 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         
         <div 
           className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-words w-full ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
-          style={{ textAlign: note.alignment || 'left', direction: (note.alignment || 'left') === 'right' ? 'rtl' : 'ltr' }}
+          dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
+          style={{ textAlign: note.alignment || 'start' }}
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
 
@@ -585,7 +586,15 @@ function FloatingWindow({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-12 prose prose-lg max-w-none break-words w-full" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: note.alignment || userSettings.defaultAlignment, direction: (note.alignment || userSettings.defaultAlignment) === 'right' ? 'rtl' : 'ltr' }}>
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-12 prose prose-lg max-w-none break-words w-full" 
+        dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
+        style={{ 
+          fontFamily: userSettings.defaultFont, 
+          fontSize: userSettings.defaultSize, 
+          textAlign: note.alignment || userSettings.defaultAlignment || 'start'
+        }}
+      >
         <div dangerouslySetInnerHTML={{ __html: note.content }} />
       </div>
 
@@ -2446,7 +2455,9 @@ function AppContent() {
                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Content</label>
                     <div 
                       ref={quillWrapperRef}
-                      className="flex-1 min-h-[300px] border border-gray-200 rounded-2xl overflow-hidden"
+                      className="flex-1 min-h-[300px] border border-gray-200 rounded-2xl overflow-hidden bg-white"
+                      dir={!noteAlignment ? "auto" : (noteAlignment === 'right' ? 'rtl' : (noteAlignment === 'left' ? 'ltr' : 'auto'))}
+                      style={{ textAlign: noteAlignment || 'start' }}
                     >
                       <ReactQuill 
                         theme="snow" 
