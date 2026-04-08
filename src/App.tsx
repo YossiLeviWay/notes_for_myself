@@ -326,9 +326,9 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
             )}
           </div>
         )}
-        <div className="flex justify-between items-start mb-3">
-          <h3 className={`font-bold text-gray-900 line-clamp-1 group-hover:text-rose-500 transition-colors ${note.size === 'lg' ? 'text-2xl' : 'text-lg'}`}>{note.title}</h3>
-          <div className="flex items-center gap-1">
+        <div className="flex justify-between items-start mb-3 gap-2">
+          <h3 className={`font-bold text-gray-900 line-clamp-2 group-hover:text-rose-500 transition-colors flex-1 ${note.size === 'lg' ? 'text-2xl' : 'text-lg'}`}>{note.title}</h3>
+          <div className="flex items-center gap-1 shrink-0">
             <button 
               onClick={(e) => { e.stopPropagation(); onPin(); }}
               className={`p-1.5 rounded-full transition-colors ${note.isPinned ? 'text-rose-500 bg-rose-50' : 'text-gray-300 hover:bg-gray-100'}`}
@@ -346,7 +346,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         </div>
         
         <div 
-          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
+          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-words ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
 
@@ -559,9 +559,9 @@ function FloatingWindow({
           document.addEventListener('mouseup', onMouseUp);
         }}
       >
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: currentStatus.color }} />
-          <h3 className="font-bold text-sm text-gray-700 truncate max-w-[200px]">{note.title}</h3>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentStatus.color }} />
+          <h3 className="font-bold text-sm text-gray-700 line-clamp-1 md:line-clamp-2">{note.title}</h3>
         </div>
         <div className="flex items-center gap-1">
           {!isMobile && (
@@ -581,7 +581,7 @@ function FloatingWindow({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 md:p-12 prose prose-lg max-w-none" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: userSettings.defaultAlignment as any }}>
+      <div className="flex-1 overflow-y-auto p-4 md:p-12 prose prose-lg max-w-none break-words" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: userSettings.defaultAlignment as any }}>
         <div dangerouslySetInnerHTML={{ __html: note.content }} />
       </div>
 
@@ -930,7 +930,7 @@ function TaskItem({
         {task.isCompleted && <CheckSquare size={12} />}
       </button>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium truncate ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+        <p className={`text-sm font-medium break-words ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
           {task.title}
         </p>
         {note && (
