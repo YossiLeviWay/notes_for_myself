@@ -173,6 +173,7 @@ interface ActiveWindow {
   width: number;
   height: number;
   isMinimized: boolean;
+  isMaximized: boolean;
   zIndex: number;
 }
 
@@ -345,7 +346,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         </div>
         
         <div 
-          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-sm max-w-none leading-relaxed ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-3' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
+          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
 
@@ -473,6 +474,7 @@ interface FloatingWindowProps {
   onColorChange: (color: string) => void;
   statuses: StatusOption[];
   userSettings: UserSettings;
+  onMaximize: () => void;
 }
 
 function FloatingWindow({ 
@@ -491,35 +493,59 @@ function FloatingWindow({
   onStatusChange,
   onColorChange,
   statuses,
-  userSettings
+  userSettings,
+  onMaximize
 }: FloatingWindowProps) {
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   if (win.isMinimized) return null;
 
+  const windowStyle = win.isMaximized || isMobile ? {
+    width: '100%',
+    height: '100%',
+    left: 0,
+    top: 0,
+    borderRadius: 0,
+    zIndex: win.zIndex,
+    position: 'fixed' as const
+  } : {
+    width: win.width,
+    height: win.height,
+    left: win.x,
+    top: win.y,
+    borderRadius: '1.5rem',
+    zIndex: win.zIndex,
+    position: 'fixed' as const
+  };
+
   return (
     <motion.div
       initial={isMobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9, x: win.x, y: win.y }}
-      animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, x: win.x, y: win.y }}
+      animate={{ 
+        opacity: 1, 
+        scale: 1, 
+        x: windowStyle.left, 
+        y: windowStyle.top,
+        width: windowStyle.width,
+        height: windowStyle.height,
+        borderRadius: windowStyle.borderRadius
+      }}
       exit={isMobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9 }}
       style={{ 
-        width: isMobile ? '100%' : win.width, 
-        height: isMobile ? '100%' : win.height, 
         zIndex: win.zIndex,
         position: 'fixed',
         left: 0,
-        top: 0,
-        borderRadius: isMobile ? 0 : '1.5rem'
+        top: 0
       }}
-      className={`bg-white shadow-2xl border border-gray-100 flex flex-col overflow-hidden ${isMobile ? 'inset-0' : ''}`}
+      className="bg-white shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
       onClick={onFocus}
     >
       {/* Header / Drag Handle */}
       <div 
-        className={`p-4 bg-gray-50 border-b flex items-center justify-between select-none ${isMobile ? '' : 'cursor-move'}`}
+        className={`p-4 bg-gray-50 border-b flex items-center justify-between select-none ${(isMobile || win.isMaximized) ? '' : 'cursor-move'}`}
         onMouseDown={(e) => {
-          if (isMobile) return;
+          if (isMobile || win.isMaximized) return;
           const startX = e.clientX - win.x;
           const startY = e.clientY - win.y;
           const onMouseMove = (moveEvent: MouseEvent) => {
@@ -539,18 +565,23 @@ function FloatingWindow({
         </div>
         <div className="flex items-center gap-1">
           {!isMobile && (
-            <button onClick={(e) => { e.stopPropagation(); onMinimize(); }} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors">
-              <Minimize2 size={16} />
-            </button>
+            <>
+              <button onClick={(e) => { e.stopPropagation(); onMaximize(); }} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors" title={win.isMaximized ? "Restore" : "Maximize"}>
+                {win.isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onMinimize(); }} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors" title="Minimize">
+                <Minus size={16} />
+              </button>
+            </>
           )}
-          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-1.5 hover:bg-rose-100 hover:text-rose-500 rounded-lg text-gray-500 transition-colors">
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-1.5 hover:bg-rose-100 hover:text-rose-500 rounded-lg text-gray-500 transition-colors" title="Close">
             <X size={16} />
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 md:p-8 prose prose-sm max-w-none" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: userSettings.defaultAlignment as any }}>
+      <div className="flex-1 overflow-y-auto p-6 md:p-12 prose prose-lg max-w-none" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: userSettings.defaultAlignment as any }}>
         <div dangerouslySetInnerHTML={{ __html: note.content }} />
       </div>
 
@@ -1129,9 +1160,10 @@ function AppContent() {
       type,
       x: isMobile ? 0 : 100 + (activeWindows.length * 30) % 300,
       y: isMobile ? 0 : 100 + (activeWindows.length * 30) % 300,
-      width: isMobile ? window.innerWidth : 600,
-      height: isMobile ? window.innerHeight : 500,
+      width: isMobile ? window.innerWidth : 800,
+      height: isMobile ? window.innerHeight : 600,
       isMinimized: false,
+      isMaximized: false,
       zIndex: newZ
     };
     setActiveWindows(prev => [...prev, newWindow]);
@@ -1149,6 +1181,10 @@ function AppContent() {
 
   const toggleMinimizeWindow = (id: string) => {
     setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, isMinimized: !w.isMinimized } : w));
+  };
+
+  const toggleMaximizeWindow = (id: string) => {
+    setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, isMaximized: !w.isMaximized } : w));
   };
 
   const updateWindowPos = (id: string, x: number, y: number) => {
@@ -2436,6 +2472,7 @@ function AppContent() {
                 note={note}
                 onClose={() => closeWindow(win.id)}
                 onMinimize={() => toggleMinimizeWindow(win.id)}
+                onMaximize={() => toggleMaximizeWindow(win.id)}
                 onFocus={() => focusWindow(win.id)}
                 onResize={(w, h) => updateWindowSize(win.id, w, h)}
                 onDrag={(x, y) => updateWindowPos(win.id, x, y)}
