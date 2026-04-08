@@ -346,7 +346,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         </div>
         
         <div 
-          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-words ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
+          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-normal ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
 
@@ -581,7 +581,7 @@ function FloatingWindow({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-12 prose prose-lg max-w-none break-words" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: userSettings.defaultAlignment as any }}>
+      <div className="flex-1 overflow-y-auto p-4 md:p-12 prose prose-lg max-w-none break-normal" style={{ fontFamily: userSettings.defaultFont, fontSize: userSettings.defaultSize, textAlign: userSettings.defaultAlignment as any }}>
         <div dangerouslySetInnerHTML={{ __html: note.content }} />
       </div>
 
@@ -930,7 +930,7 @@ function TaskItem({
         {task.isCompleted && <CheckSquare size={12} />}
       </button>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium break-words ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+        <p className={`text-sm font-medium break-normal ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
           {task.title}
         </p>
         {note && (
