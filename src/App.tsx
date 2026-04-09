@@ -353,7 +353,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         </div>
         
         <div 
-          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-words w-full overflow-hidden ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5 max-h-[7.5rem]' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
+          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-normal w-full overflow-hidden ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5 max-h-[7.5rem]' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
           dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
           style={{ textAlign: note.alignment || 'start' }}
           dangerouslySetInnerHTML={{ __html: note.content }}
@@ -507,6 +507,7 @@ function FloatingWindow({
 }: FloatingWindowProps) {
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const [zoomLevel, setZoomLevel] = useState(100);
 
   if (win.isMinimized) return null;
 
@@ -573,6 +574,23 @@ function FloatingWindow({
           <h3 className="font-bold text-sm text-gray-700 line-clamp-1 md:line-clamp-2">{note.title}</h3>
         </div>
         <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 mr-2 bg-gray-200/50 rounded-lg p-0.5">
+            <button 
+              onClick={(e) => { e.stopPropagation(); setZoomLevel(prev => Math.max(50, prev - 10)); }}
+              className="p-1 hover:bg-white rounded-md text-gray-500 transition-all"
+              title="Zoom Out"
+            >
+              <Minus size={12} />
+            </button>
+            <span className="text-[10px] font-bold text-gray-500 w-8 text-center">{zoomLevel}%</span>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setZoomLevel(prev => Math.min(200, prev + 10)); }}
+              className="p-1 hover:bg-white rounded-md text-gray-500 transition-all"
+              title="Zoom In"
+            >
+              <Plus size={12} />
+            </button>
+          </div>
           {!isMobile && (
             <>
               <button onClick={(e) => { e.stopPropagation(); onMaximize(); }} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors" title={win.isMaximized ? "Restore" : "Maximize"}>
@@ -591,11 +609,11 @@ function FloatingWindow({
 
       {/* Content */}
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-12 prose prose-lg max-w-none break-words w-full" 
+        className="flex-1 overflow-y-auto p-4 md:p-12 prose prose-lg max-w-none break-normal w-full" 
         dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
         style={{ 
           fontFamily: userSettings.defaultFont, 
-          fontSize: userSettings.defaultSize, 
+          fontSize: `calc(${userSettings.defaultSize || '16px'} * ${zoomLevel / 100})`, 
           textAlign: note.alignment || userSettings.defaultAlignment || 'start'
         }}
       >
@@ -989,7 +1007,7 @@ function TaskItem({
           </div>
         ) : (
           <>
-            <p className={`text-sm font-medium break-words w-full leading-relaxed ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+            <p className={`text-xs font-medium break-normal w-full leading-relaxed ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
               {task.title}
             </p>
             {note && (
