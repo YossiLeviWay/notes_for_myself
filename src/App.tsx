@@ -147,6 +147,7 @@ interface StatusOption {
   id: string;
   label: string;
   color: string;
+  isVisible: boolean;
 }
 
 const PASTEL_COLORS = [
@@ -168,6 +169,8 @@ interface UserSettings {
   cardViewMode: 'compact' | 'full';
   defaultFolderId: string | null;
   defaultTaskListId: string | null;
+  startupFolderId: string | null;
+  startupTaskListId: string | null;
   enableNotifications: boolean;
 }
 
@@ -481,6 +484,7 @@ interface FloatingWindowProps {
   onDelete: () => void;
   onStatusChange: (status: string) => void;
   onColorChange: (color: string) => void;
+  onUpdateNote: (id: string, data: Partial<Note>) => void;
   statuses: StatusOption[];
   userSettings: UserSettings;
   onMaximize: () => void;
@@ -501,6 +505,7 @@ function FloatingWindow({
   onDelete,
   onStatusChange,
   onColorChange,
+  onUpdateNote,
   statuses,
   userSettings,
   onMaximize
@@ -508,6 +513,17 @@ function FloatingWindow({
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [isQuickEditing, setIsQuickEditing] = useState(false);
+  const [quickEditContent, setQuickEditContent] = useState(note.content);
+
+  useEffect(() => {
+    setQuickEditContent(note.content);
+  }, [note.content]);
+
+  const handleQuickSave = () => {
+    onUpdateNote(note.id, { content: quickEditContent });
+    setIsQuickEditing(false);
+  };
 
   if (win.isMinimized) return null;
 
@@ -609,7 +625,7 @@ function FloatingWindow({
 
       {/* Content */}
       <div 
-        className="flex-1 overflow-y-auto p-4 md:p-12 prose prose-lg max-w-none break-normal w-full" 
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 prose prose-lg max-w-none break-normal w-full" 
         dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
         style={{ 
           fontFamily: userSettings.defaultFont, 
@@ -617,16 +633,52 @@ function FloatingWindow({
           textAlign: note.alignment || userSettings.defaultAlignment || 'start'
         }}
       >
-        <div dangerouslySetInnerHTML={{ __html: note.content }} />
+        {isQuickEditing ? (
+          <div className="h-full flex flex-col gap-4">
+            <textarea
+              autoFocus
+              className="flex-1 w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none resize-none font-sans text-base leading-relaxed"
+              value={quickEditContent}
+              onChange={(e) => setQuickEditContent(e.target.value)}
+              placeholder="Quickly edit your note content..."
+            />
+            <div className="flex justify-end gap-2">
+              <button 
+                onClick={() => setIsQuickEditing(false)}
+                className="px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleQuickSave}
+                className="px-4 py-2 text-sm font-bold bg-rose-500 text-white rounded-xl shadow-lg hover:bg-rose-600 transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div dangerouslySetInnerHTML={{ __html: note.content }} />
+        )}
       </div>
 
       {/* Footer / Actions */}
       <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <button onClick={onEdit} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
-              <Edit2 size={14} /> Edit
-            </button>
+            <>
+              <button onClick={onEdit} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+                <Edit2 size={14} /> Full Editor
+              </button>
+              {!isQuickEditing && (
+                <button 
+                  onClick={() => setIsQuickEditing(true)} 
+                  className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-100 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-100 transition-colors"
+                >
+                  <Type size={14} /> Quick Edit
+                </button>
+              )}
+            </>
           )}
           <button onClick={onFavorite} className={`p-1.5 rounded-xl transition-colors ${note.isFavorite ? 'text-yellow-400 bg-yellow-50' : 'text-gray-400 hover:bg-white'}`}>
             <Star size={16} fill={note.isFavorite ? "currentColor" : "none"} />
@@ -696,7 +748,7 @@ function TaskSidebar({
   taskLists: TaskList[];
   activeListId: string | null;
   onSelectList: (id: string) => void;
-  onAddTask: (title: string) => void;
+  onAddTask: (title: string, noteId?: string) => void;
   onToggleTask: (id: string, completed: boolean) => void;
   onDeleteTask: (id: string) => void;
   onAddList: (name: string) => void;
@@ -727,7 +779,7 @@ function TaskSidebar({
       initial={isPinned ? { width: 320 } : { x: 320 }}
       animate={isPinned ? { width: 320 } : { x: 0 }}
       exit={isPinned ? { width: 0 } : { x: 320 }}
-      className={`bg-white border-l border-gray-100 flex flex-col transition-all duration-300 z-[250] ${isPinned ? 'relative h-[calc(100vh-80px)] sticky top-20' : 'fixed right-0 top-20 h-[calc(100vh-80px)] shadow-2xl'}`}
+      className={`bg-white border-l border-gray-100 flex flex-col transition-all duration-300 z-[40] ${isPinned ? 'relative h-[calc(100vh-80px)] sticky top-20' : 'fixed right-0 top-20 h-[calc(100vh-80px)] shadow-2xl'}`}
       style={{ width: 320 }}
     >
       <div className="p-6 border-b flex items-center justify-between bg-gray-50/50">
@@ -866,8 +918,7 @@ function TaskSidebar({
             if (noteId) {
               const note = notes.find(n => n.id === noteId);
               if (note) {
-                onAddTask(`Linked: ${note.title}`);
-                // In a real app, we'd also link the ID
+                onAddTask(note.title, note.id);
               }
             }
           }}
@@ -1007,7 +1058,7 @@ function TaskItem({
           </div>
         ) : (
           <>
-            <p className={`text-xs font-medium break-normal w-full leading-relaxed ${task.isCompleted ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+            <p className={`text-xs font-medium break-normal w-full leading-relaxed ${task.isCompleted ? 'text-gray-400 line-through' : (note ? 'text-rose-600 hover:underline' : 'text-gray-700')}`}>
               {task.title}
             </p>
             {note && (
@@ -1021,7 +1072,7 @@ function TaskItem({
       </div>
       <div className="relative shrink-0">
         <button 
-          onClick={() => setShowMenu(!showMenu)}
+          onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
           className="p-1.5 text-gray-300 hover:text-rose-500 rounded-lg transition-colors"
           title="More options"
         >
@@ -1096,9 +1147,9 @@ function AppContent() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [statuses, setStatuses] = useState<StatusOption[]>([
-    { id: 'todo', label: 'Todo', color: '#3B82F6' },
-    { id: 'in-progress', label: 'In Progress', color: '#F97316' },
-    { id: 'done', label: 'Done', color: '#22C55E' }
+    { id: 'todo', label: 'Todo', color: '#3B82F6', isVisible: true },
+    { id: 'in-progress', label: 'In Progress', color: '#F97316', isVisible: true },
+    { id: 'done', label: 'Done', color: '#22C55E', isVisible: true }
   ]);
   const [userSettings, setUserSettings] = useState<UserSettings>({
     defaultFont: 'Inter',
@@ -1107,6 +1158,8 @@ function AppContent() {
     cardViewMode: 'compact',
     defaultFolderId: null,
     defaultTaskListId: null,
+    startupFolderId: null,
+    startupTaskListId: null,
     enableNotifications: false
   });
   const [activeWindows, setActiveWindows] = useState<ActiveWindow[]>([]);
@@ -1114,6 +1167,7 @@ function AppContent() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const quillWrapperRef = useRef<HTMLDivElement>(null);
+  const hasInitializedStartup = useRef(false);
 
   // History State
   const [history, setHistory] = useState<any[]>([]);
@@ -1539,7 +1593,20 @@ function AppContent() {
       if (snapshot.exists()) {
         const data = snapshot.data();
         if (data.statuses) setStatuses(data.statuses);
-        if (data.userSettings) setUserSettings(data.userSettings);
+        if (data.userSettings) {
+          setUserSettings(data.userSettings);
+          
+          // Initialize startup view once
+          if (!hasInitializedStartup.current) {
+            if (data.userSettings.startupFolderId) {
+              setCurrentFolderId(data.userSettings.startupFolderId);
+            }
+            if (data.userSettings.startupTaskListId) {
+              setActiveTaskListId(data.userSettings.startupTaskListId);
+            }
+            hasInitializedStartup.current = true;
+          }
+        }
       }
     });
     return () => unsubscribe();
@@ -1905,7 +1972,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-[#F7F7F7] text-[#222222] font-sans selection:bg-rose-100">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 px-4 md:px-8 py-4">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-[50] px-4 md:px-8 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
@@ -2003,7 +2070,7 @@ function AppContent() {
                       <span>All Statuses</span>
                       {statusFilter === 'all' && <CheckCircle2 size={14} />}
                     </button>
-                    {statuses.map((s) => (
+                    {statuses.filter(s => s.isVisible).map((s) => (
                       <button 
                         key={s.id}
                         onClick={() => { setStatusFilter(s.id); setShowFilterDropdown(false); }}
@@ -2209,7 +2276,7 @@ function AppContent() {
           {/* Notes Grid or Workflow Board */}
           {viewMode === 'workflow' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
-              {statuses.map((status) => (
+              {statuses.filter(s => s.isVisible).map((status) => (
                 <div key={status.id} className="bg-gray-100/50 rounded-3xl p-4 min-h-[600px] flex flex-col gap-4">
                   <div className="flex items-center justify-between px-2 mb-2">
                     <h3 className="font-bold text-sm uppercase tracking-widest text-gray-500 flex items-center gap-2">
@@ -2449,7 +2516,7 @@ function AppContent() {
                           value={noteStatus}
                           onChange={(e) => setNoteStatus(e.target.value)}
                         >
-                          {statuses.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                          {statuses.filter(s => s.isVisible).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                         </select>
                       </div>
                     </div>
@@ -2700,6 +2767,7 @@ function AppContent() {
                 onDelete={() => deleteNote(note.id)}
                 onStatusChange={(status) => updateNoteStatus(note.id, status)}
                 onColorChange={(color) => updateNoteColor(note.id, color)}
+                onUpdateNote={handleUpdateNote}
                 statuses={statuses}
                 userSettings={userSettings}
               />
@@ -2865,7 +2933,7 @@ function SettingsModal({
     setLocalStatuses(localStatuses.filter(s => s.id !== id));
   };
 
-  const handleStatusChange = (id: string, field: keyof StatusOption, value: string) => {
+  const handleStatusChange = (id: string, field: keyof StatusOption, value: any) => {
     setLocalStatuses(localStatuses.map(s => s.id === id ? { ...s, [field]: value } : s));
   };
 
@@ -2962,6 +3030,32 @@ function SettingsModal({
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Startup Folder</label>
+                    <select 
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.startupFolderId || ''}
+                      onChange={(e) => setLocalSettings({ ...localSettings, startupFolderId: e.target.value || null })}
+                    >
+                      <option value="">All Notes (Default)</option>
+                      {folders.map(f => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Startup Task List</label>
+                    <select 
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.startupTaskListId || ''}
+                      onChange={(e) => setLocalSettings({ ...localSettings, startupTaskListId: e.target.value || null })}
+                    >
+                      <option value="">No Default List</option>
+                      {taskLists.map(l => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="md:col-span-3">
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
                       <div className="flex items-center gap-3">
@@ -3003,26 +3097,36 @@ function SettingsModal({
                 </div>
                 <div className="space-y-3">
                   {localStatuses.map((status) => (
-                    <div key={status.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-100">
-                      <input 
-                        type="color" 
-                        value={status.color}
-                        onChange={(e) => handleStatusChange(status.id, 'color', e.target.value)}
-                        className="w-10 h-10 rounded-lg border-0 p-0 cursor-pointer bg-transparent"
-                      />
-                      <input 
-                        type="text" 
-                        value={status.label}
-                        onChange={(e) => handleStatusChange(status.id, 'label', e.target.value)}
-                        className="flex-1 bg-white border border-gray-200 rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                      />
-                      <button 
-                        onClick={() => handleRemoveStatus(status.id)}
-                        className="p-2 text-gray-400 hover:text-rose-500 transition-colors"
-                        disabled={localStatuses.length <= 1}
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                    <div key={status.id} className="flex flex-col md:flex-row md:items-center gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                      <div className="flex items-center gap-3 flex-1">
+                        <input 
+                          type="color" 
+                          value={status.color}
+                          onChange={(e) => handleStatusChange(status.id, 'color', e.target.value)}
+                          className="w-10 h-10 rounded-lg border-0 p-0 cursor-pointer bg-transparent shrink-0"
+                        />
+                        <input 
+                          type="text" 
+                          value={status.label}
+                          onChange={(e) => handleStatusChange(status.id, 'label', e.target.value)}
+                          className="flex-1 bg-white border border-gray-200 rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleStatusChange(status.id, 'isVisible', !status.isVisible)}
+                          className={`flex-1 md:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all ${status.isVisible ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                        >
+                          {status.isVisible ? 'Visible' : 'Hidden'}
+                        </button>
+                        <button 
+                          onClick={() => handleRemoveStatus(status.id)}
+                          className="p-2 text-gray-400 hover:text-rose-500 transition-colors shrink-0"
+                          disabled={localStatuses.length <= 1}
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
