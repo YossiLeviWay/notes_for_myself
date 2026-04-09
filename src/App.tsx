@@ -195,7 +195,7 @@ interface FolderType {
 }
 
 // Note Card Component for reuse
-function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, statuses, viewMode, onClick }: { 
+function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, statuses, viewMode, onClick, userSettings }: { 
   note: Note, 
   isAdmin: boolean, 
   onEdit: () => void, 
@@ -209,6 +209,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
   statuses: StatusOption[],
   viewMode: 'compact' | 'full',
   onClick: () => void,
+  userSettings: UserSettings,
   key?: string
 }) {
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
@@ -358,7 +359,11 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         <div 
           className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-normal w-full overflow-hidden ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5 max-h-[7.5rem]' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
           dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
-          style={{ textAlign: note.alignment || 'start' }}
+          style={{ 
+            textAlign: note.alignment || 'start',
+            fontFamily: userSettings.defaultFont,
+            fontSize: userSettings.defaultSize || '14px'
+          }}
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
 
@@ -625,7 +630,7 @@ function FloatingWindow({
 
       {/* Content */}
       <div 
-        className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 prose prose-lg max-w-none break-normal w-full" 
+        className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 max-w-none break-normal w-full ${!isQuickEditing ? 'prose prose-lg' : ''}`} 
         dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
         style={{ 
           fontFamily: userSettings.defaultFont, 
@@ -634,12 +639,13 @@ function FloatingWindow({
         }}
       >
         {isQuickEditing ? (
-          <div className="h-full flex flex-col gap-4">
-            <textarea
-              autoFocus
-              className="flex-1 w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none resize-none font-sans text-base leading-relaxed"
+          <div className="h-full flex flex-col gap-4 min-h-[300px]">
+            <ReactQuill
+              theme="snow"
               value={quickEditContent}
-              onChange={(e) => setQuickEditContent(e.target.value)}
+              onChange={setQuickEditContent}
+              modules={{ toolbar: false }}
+              className="flex-1 bg-white rounded-2xl overflow-hidden border border-gray-200"
               placeholder="Quickly edit your note content..."
             />
             <div className="flex justify-end gap-2">
@@ -2294,6 +2300,7 @@ function AppContent() {
                         key={note.id} 
                         note={note} 
                         isAdmin={isAdmin} 
+                        userSettings={userSettings}
                         onEdit={() => {
                           setEditNoteData(note);
                           setNoteTitle(note.title);
@@ -2330,6 +2337,7 @@ function AppContent() {
                     key={note.id} 
                     note={note} 
                     isAdmin={isAdmin} 
+                    userSettings={userSettings}
                     onEdit={() => {
                       setEditNoteData(note);
                       setNoteTitle(note.title);
@@ -2853,7 +2861,7 @@ function AppContent() {
       <style>{`
         .ql-container {
           font-family: inherit;
-          font-size: 16px;
+          font-size: inherit;
         }
         .ql-editor {
           min-height: 250px;
@@ -2868,6 +2876,9 @@ function AppContent() {
         }
         .ql-container.ql-snow {
           border: none;
+        }
+        .prose * {
+          font-family: inherit;
         }
         .prose img {
           border-radius: 1rem;
