@@ -121,6 +121,7 @@ interface Note {
   updatedAt: any;
   uid: string;
   alignment?: 'left' | 'center' | 'right' | 'justify';
+  isCollapsed?: boolean;
 }
 
 interface Task {
@@ -195,7 +196,7 @@ interface FolderType {
 }
 
 // Note Card Component for reuse
-function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, statuses, viewMode, onClick, userSettings }: { 
+function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, onToggleCollapse, statuses, viewMode, onClick, userSettings }: { 
   note: Note, 
   isAdmin: boolean, 
   onEdit: () => void, 
@@ -206,6 +207,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
   onColorChange: (color: string) => void | Promise<void>,
   onPin: () => void | Promise<void>,
   onSizeChange: (size: 'sm' | 'md' | 'lg') => void | Promise<void>,
+  onToggleCollapse: () => void | Promise<void>,
   statuses: StatusOption[],
   viewMode: 'compact' | 'full',
   onClick: () => void,
@@ -341,6 +343,13 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           <h3 className={`font-bold text-gray-900 line-clamp-2 group-hover:text-rose-500 transition-colors flex-1 ${note.size === 'lg' ? 'text-2xl' : 'text-lg'}`}>{note.title}</h3>
           <div className="flex items-center gap-1 shrink-0">
             <button 
+              onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
+              className={`p-1.5 rounded-full transition-colors ${note.isCollapsed ? 'text-rose-500 bg-rose-50' : 'text-gray-300 hover:bg-gray-100'}`}
+              title={note.isCollapsed ? "Expand Note" : "Collapse Note"}
+            >
+              {note.isCollapsed ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
+            </button>
+            <button 
               onClick={(e) => { e.stopPropagation(); onPin(); }}
               className={`p-1.5 rounded-full transition-colors ${note.isPinned ? 'text-rose-500 bg-rose-50' : 'text-gray-300 hover:bg-gray-100'}`}
               title={note.isPinned ? "Unpin Note" : "Pin Note"}
@@ -357,7 +366,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         </div>
         
         <div 
-          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed break-normal w-full overflow-hidden ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5 max-h-[7.5rem]' : ''} ${note.size === 'lg' ? 'line-clamp-none' : ''}`}
+          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed w-full overflow-hidden note-content ${note.isCollapsed ? 'line-clamp-1 max-h-[1.5rem]' : (viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5 max-h-[7.5rem]' : (note.size === 'lg' ? 'line-clamp-none' : ''))}`}
           dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
           style={{ 
             textAlign: note.alignment || 'start',
@@ -551,27 +560,25 @@ function FloatingWindow({
   };
 
   return (
-    <motion.div
-      initial={isMobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9, x: win.x, y: win.y }}
-      animate={{ 
-        opacity: 1, 
-        scale: 1, 
-        x: windowStyle.left, 
-        y: windowStyle.top,
-        width: windowStyle.width,
-        height: windowStyle.height,
-        borderRadius: windowStyle.borderRadius
-      }}
-      exit={isMobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9 }}
-      style={{ 
-        zIndex: win.zIndex,
-        position: 'fixed',
-        left: 0,
-        top: 0
-      }}
-      className="bg-white shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
-      onClick={onFocus}
-    >
+      <motion.div
+        initial={isMobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9, x: win.x, y: win.y }}
+        animate={{ 
+          opacity: 1, 
+          scale: 1, 
+          borderRadius: windowStyle.borderRadius
+        }}
+        exit={isMobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9 }}
+        style={{ 
+          zIndex: win.zIndex,
+          position: 'fixed',
+          left: windowStyle.left,
+          top: windowStyle.top,
+          width: windowStyle.width,
+          height: windowStyle.height
+        }}
+        className="bg-white shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
+        onClick={onFocus}
+      >
       {/* Header / Drag Handle */}
       <div 
         className={`p-4 bg-gray-50 border-b flex items-center justify-between select-none ${(isMobile || win.isMaximized) ? '' : 'cursor-move'}`}
@@ -630,7 +637,7 @@ function FloatingWindow({
 
       {/* Content */}
       <div 
-        className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 max-w-none break-normal w-full ${!isQuickEditing ? 'prose prose-lg' : ''}`} 
+        className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 max-w-none w-full note-content ${!isQuickEditing ? 'prose prose-lg' : ''}`} 
         dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
         style={{ 
           fontFamily: userSettings.defaultFont, 
@@ -1786,6 +1793,10 @@ function AppContent() {
     handleUpdateNote(id, { size });
   };
 
+  const handleToggleCollapse = async (id: string, isCollapsed: boolean) => {
+    handleUpdateNote(id, { isCollapsed });
+  };
+
 
   const resetNoteForm = () => {
     setNoteTitle('');
@@ -2320,6 +2331,7 @@ function AppContent() {
                         onColorChange={(c) => updateNoteColor(note.id, c)}
                         onPin={() => handlePinNote(note.id, !note.isPinned)}
                         onSizeChange={(s) => handleSizeNote(note.id, s)}
+                        onToggleCollapse={() => handleToggleCollapse(note.id, !note.isCollapsed)}
                         statuses={statuses}
                         viewMode={userSettings.cardViewMode}
                         onClick={() => openWindow(note.id)}
@@ -2357,6 +2369,7 @@ function AppContent() {
                     onColorChange={(c) => updateNoteColor(note.id, c)}
                     onPin={() => handlePinNote(note.id, !note.isPinned)}
                     onSizeChange={(s) => handleSizeNote(note.id, s)}
+                    onToggleCollapse={() => handleToggleCollapse(note.id, !note.isCollapsed)}
                     statuses={statuses}
                     viewMode={userSettings.cardViewMode}
                     onClick={() => openWindow(note.id)}
@@ -2879,6 +2892,11 @@ function AppContent() {
         }
         .prose * {
           font-family: inherit;
+        }
+        .note-content {
+          word-break: normal;
+          overflow-wrap: break-word;
+          hyphens: none;
         }
         .prose img {
           border-radius: 1rem;
