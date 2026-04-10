@@ -180,6 +180,7 @@ interface UserSettings {
   enableNotifications: boolean;
   isSidebarCollapsed: boolean;
   gridColumns: number;
+  notesPerColumn: number;
 }
 
 interface ActiveWindow {
@@ -412,7 +413,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
               <button 
                 onClick={(e) => { e.stopPropagation(); setShowSizePicker(true); }}
-                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
                 title="Change Card Size"
               >
                 <Maximize2 size={14} />
@@ -431,19 +432,19 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
               </div>
               <button 
                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
               >
                 <Edit2 size={14} />
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); onArchive(); }}
-                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
               >
                 <Archive size={14} />
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
               >
                 <Trash2 size={14} />
               </button>
@@ -807,7 +808,7 @@ function TaskSidebar({
     >
       <div className="p-6 border-b flex items-center justify-between bg-gray-50/50">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-rose-500 text-white rounded-xl shadow-lg">
+          <div className="p-2 bg-purple-500 text-white rounded-xl shadow-lg">
             <CheckSquare size={20} />
           </div>
           <h2 className="font-bold text-lg text-gray-900">Tasks</h2>
@@ -884,7 +885,7 @@ function TaskSidebar({
                       }
                       if (e.key === 'Escape') setEditingListId(null);
                     }}
-                    className="flex-1 px-3 py-1.5 bg-white border border-rose-300 rounded-xl text-sm focus:outline-none"
+                    className="flex-1 px-3 py-1.5 bg-white border border-purple-300 rounded-xl text-sm focus:outline-none"
                   />
                 ) : (
                   <button
@@ -1066,7 +1067,7 @@ function TaskItem({
           <div className="flex flex-col gap-2">
             <input 
               autoFocus
-              className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none"
+              className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               onKeyDown={(e) => {
@@ -1075,7 +1076,7 @@ function TaskItem({
               }}
             />
             <div className="flex gap-2">
-              <button onClick={handleUpdate} className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Save</button>
+              <button onClick={handleUpdate} className="text-[10px] font-bold text-purple-500 uppercase tracking-widest">Save</button>
               <button onClick={() => { setIsEditing(false); setEditTitle(task.title); }} className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cancel</button>
             </div>
           </div>
@@ -1185,7 +1186,8 @@ function AppContent() {
     startupTaskListId: null,
     enableNotifications: false,
     isSidebarCollapsed: false,
-    gridColumns: 3
+    gridColumns: 3,
+    notesPerColumn: 10
   });
   const [activeWindows, setActiveWindows] = useState<ActiveWindow[]>([]);
   const [maxZIndex, setMaxZIndex] = useState(100);
@@ -2290,7 +2292,7 @@ function AppContent() {
                     {isAdmin && !userSettings.isSidebarCollapsed && (
                       <button 
                         onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-rose-500 opacity-0 group-hover/folder:opacity-100 transition-all"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-purple-500 opacity-0 group-hover/folder:opacity-100 transition-all"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -2307,7 +2309,7 @@ function AppContent() {
                   <button 
                     key={tag}
                     onClick={() => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${selectedTags.includes(tag) ? 'bg-rose-500 border-rose-500 text-white' : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'}`}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${selectedTags.includes(tag) ? 'bg-purple-500 border-purple-500 text-white' : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'}`}
                   >
                     #{tag}
                   </button>
@@ -2339,7 +2341,7 @@ function AppContent() {
             
             <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
               {selectedTags.map(tag => (
-                <span key={tag} className="flex items-center gap-1 bg-rose-100 text-rose-600 px-3 py-1 rounded-full text-xs font-bold">
+                <span key={tag} className="flex items-center gap-1 bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-xs font-bold">
                   #{tag} <X size={12} className="cursor-pointer" onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))} />
                 </span>
               ))}
@@ -2365,7 +2367,7 @@ function AppContent() {
                   </div>
                   
                   <div className="flex flex-col gap-4">
-                    {sortedNotes.filter(n => n.status === status.id).map((note) => (
+                    {sortedNotes.filter(n => n.status === status.id).slice(0, userSettings.notesPerColumn).map((note) => (
                       <NoteCard 
                         key={note.id} 
                         note={note} 
@@ -2524,7 +2526,7 @@ function AppContent() {
                       {isAdmin && (
                         <button 
                           onClick={() => { setShowAddFolderModal(true); setIsSidebarOpen(false); }} 
-                          className="text-rose-500 hover:bg-rose-50 p-1 rounded transition-colors"
+                          className="text-purple-500 hover:bg-purple-50 p-1 rounded transition-colors"
                         >
                           <Plus size={16} />
                         </button>
@@ -2577,7 +2579,7 @@ function AppContent() {
                       <input 
                         type="text" 
                         placeholder="Enter note title..."
-                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all font-bold text-lg"
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all font-bold text-lg"
                         value={noteTitle}
                         onChange={(e) => setNoteTitle(e.target.value)}
                       />
@@ -2612,7 +2614,7 @@ function AppContent() {
                           <button
                             key={c.value}
                             onClick={() => setNoteColor(c.value)}
-                            className={`w-8 h-8 rounded-full border-2 transition-all ${noteColor === c.value ? 'border-rose-500 scale-110 shadow-md' : 'border-white shadow-sm hover:scale-105'}`}
+                            className={`w-8 h-8 rounded-full border-2 transition-all ${noteColor === c.value ? 'border-purple-500 scale-110 shadow-md' : 'border-white shadow-sm hover:scale-105'}`}
                             style={{ backgroundColor: c.value || '#FFFFFF' }}
                             title={c.name}
                           />
@@ -2674,7 +2676,7 @@ function AppContent() {
                           <button
                             key={align}
                             onClick={() => setNoteAlignment(align)}
-                            className={`flex-1 p-3 rounded-xl border-2 transition-all flex items-center justify-center ${noteAlignment === align ? 'border-rose-500 bg-rose-50 text-rose-500' : 'border-gray-100 text-gray-400 hover:bg-gray-50'}`}
+                            className={`flex-1 p-3 rounded-xl border-2 transition-all flex items-center justify-center ${noteAlignment === align ? 'border-purple-500 bg-purple-50 text-purple-500' : 'border-gray-100 text-gray-400 hover:bg-gray-50'}`}
                           >
                             {align === 'left' && <AlignLeft size={18} />}
                             {align === 'center' && <AlignCenter size={18} />}
@@ -2725,7 +2727,7 @@ function AppContent() {
                 </button>
                 <button 
                   onClick={handleAddNote}
-                  className="px-8 py-3 bg-rose-500 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                  className="px-8 py-3 bg-purple-500 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
                 >
                   {editNoteData ? 'Update Note' : 'Save Note'}
                 </button>
@@ -2757,7 +2759,7 @@ function AppContent() {
                     type="text" 
                     id="folderName"
                     placeholder="Enter folder name..."
-                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all font-bold"
+                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all font-bold"
                     defaultValue={editFolderData?.name}
                   />
                 </div>
@@ -2780,7 +2782,7 @@ function AppContent() {
                     const parentId = (document.getElementById('folderParent') as HTMLSelectElement).value || null;
                     handleAddFolder(name, parentId);
                   }}
-                  className="flex-1 bg-rose-500 text-white py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all"
+                  className="flex-1 bg-purple-500 text-white py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all"
                 >
                   Save Folder
                 </button>
@@ -2869,7 +2871,7 @@ function AppContent() {
                 <button
                   key={win.id}
                   onClick={() => toggleMinimizeWindow(win.id)}
-                  className="px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold hover:bg-purple-100 transition-all flex items-center gap-2"
                 >
                   <ExternalLink size={14} /> {note?.title || 'Note'}
                 </button>
@@ -2928,7 +2930,7 @@ function AppContent() {
       {isAdmin && (
         <button 
           onClick={() => { setEditNoteData(null); resetNoteForm(); setShowAddNoteModal(true); }}
-          className="fixed bottom-8 right-8 md:hidden w-16 h-16 bg-rose-500 text-white rounded-full shadow-2xl flex items-center justify-center z-40 hover:scale-110 transition-transform active:scale-95"
+          className="fixed bottom-8 right-8 md:hidden w-16 h-16 bg-purple-500 text-white rounded-full shadow-2xl flex items-center justify-center z-40 hover:scale-110 transition-transform active:scale-95"
         >
           <Plus size={32} />
         </button>
@@ -3139,7 +3141,7 @@ function SettingsModal({
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-2">Startup Task List</label>
                     <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
                       value={localSettings.startupTaskListId || ''}
                       onChange={(e) => setLocalSettings({ ...localSettings, startupTaskListId: e.target.value || null })}
                     >
@@ -3177,13 +3179,42 @@ function SettingsModal({
                 </div>
               </section>
 
+              {/* Board Layout */}
+              <section className="space-y-4">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Board Layout</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Grid Columns (Main Board)</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="6"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.gridColumns}
+                      onChange={(e) => setLocalSettings({ ...localSettings, gridColumns: parseInt(e.target.value) || 3 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Max Notes per Column (Workflow)</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="100"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.notesPerColumn}
+                      onChange={(e) => setLocalSettings({ ...localSettings, notesPerColumn: parseInt(e.target.value) || 10 })}
+                    />
+                  </div>
+                </div>
+              </section>
+
               {/* Status Customization */}
               <section className="space-y-4">
                 <div className="flex items-center justify-between border-b pb-2">
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Status Titles & Colors</h3>
                   <button 
                     onClick={handleAddStatus}
-                    className="flex items-center gap-1 text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
+                    className="flex items-center gap-1 text-xs font-bold text-purple-500 hover:text-purple-600 transition-colors"
                   >
                     <Plus size={14} /> Add Status
                   </button>
@@ -3202,7 +3233,7 @@ function SettingsModal({
                           type="text" 
                           value={status.label}
                           onChange={(e) => handleStatusChange(status.id, 'label', e.target.value)}
-                          className="flex-1 bg-white border border-gray-200 rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                          className="flex-1 bg-white border border-gray-200 rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-purple-500 focus:outline-none"
                         />
                       </div>
                       <div className="flex items-center gap-2">
@@ -3214,7 +3245,7 @@ function SettingsModal({
                         </button>
                         <button 
                           onClick={() => handleRemoveStatus(status.id)}
-                          className="p-2 text-gray-400 hover:text-rose-500 transition-colors shrink-0"
+                          className="p-2 text-gray-400 hover:text-purple-500 transition-colors shrink-0"
                           disabled={localStatuses.length <= 1}
                         >
                           <Trash2 size={18} />
