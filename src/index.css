@@ -3,6 +3,19 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-primary: #9D85FF;
+  --color-secondary: #D8B4FE;
+  --color-accent: #F3E8FF;
+}
+
+.prose * {
+  font-family: inherit;
+}
+
+.note-content {
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 @layer utilities {

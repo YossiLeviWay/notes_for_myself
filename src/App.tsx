@@ -67,7 +67,9 @@ import {
   AlignRight,
   AlignJustify,
   List as ListIcon,
-  ListOrdered
+  ListOrdered,
+  Palette,
+  ChevronLeft
 } from 'lucide-react';
 import { db, auth } from './firebase';
 import { format, isAfter, isBefore, startOfToday, endOfToday, addDays } from 'date-fns';
@@ -77,20 +79,22 @@ import { motion, AnimatePresence } from 'motion/react';
 
 const appId = 'notes-for-myself-app';
 
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
+
 // Pastel Color Palette
 const colors = {
-  primary: '#FF5A5F', // Airbnb Red
-  secondary: '#00A699', // Airbnb Teal
-  accent: '#FC642D', // Airbnb Orange
-  background: '#F7F7F7',
+  primary: '#9D85FF', // Soft Purple
+  secondary: '#D8B4FE', // Lavender
+  accent: '#F3E8FF', // Very Light Purple
+  background: '#F9F7FF',
   card: '#FFFFFF',
   pastel: {
-    pink: '#FFD1DC',
-    blue: '#AEC6CF',
-    green: '#77DD77',
-    yellow: '#FDFD96',
-    purple: '#B39EB5',
-    orange: '#FFB347'
+    pink: '#FCE7F3',
+    blue: '#E0F2FE',
+    green: '#DCFCE7',
+    yellow: '#FEF9C3',
+    purple: '#F3E8FF',
+    orange: '#FFEDD5'
   }
 };
 
@@ -149,6 +153,7 @@ interface StatusOption {
   label: string;
   color: string;
   isVisible: boolean;
+  background?: string;
 }
 
 const PASTEL_COLORS = [
@@ -173,6 +178,8 @@ interface UserSettings {
   startupFolderId: string | null;
   startupTaskListId: string | null;
   enableNotifications: boolean;
+  isSidebarCollapsed: boolean;
+  gridColumns: number;
 }
 
 interface ActiveWindow {
@@ -193,6 +200,7 @@ interface FolderType {
   name: string;
   parentId: string | null;
   createdAt: any;
+  background?: string;
 }
 
 // Note Card Component for reuse
@@ -219,9 +227,9 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
   const [showSizePicker, setShowSizePicker] = useState(false);
 
   const sizeClasses = {
-    sm: 'col-span-1 row-span-1 min-h-[200px]',
-    md: 'col-span-1 md:col-span-2 row-span-1 min-h-[250px]',
-    lg: 'col-span-1 md:col-span-2 row-span-2 min-h-[400px]'
+    sm: 'col-span-1 row-span-1 min-h-[100px]',
+    md: 'col-span-1 md:col-span-2 row-span-1 min-h-[150px]',
+    lg: 'col-span-1 md:col-span-2 row-span-2 min-h-[300px]'
   };
 
   return (
@@ -236,7 +244,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           setShowColorPicker(true);
         }
       }}
-      className={`group rounded-[2rem] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 border border-gray-100/50 flex flex-col backdrop-blur-sm relative cursor-pointer ${sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-2 ring-rose-500 ring-offset-4' : ''}`}
+      className={`group rounded-[1.5rem] overflow-hidden shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500 border border-gray-100 flex flex-col backdrop-blur-sm relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-2 ring-purple-400 ring-offset-2' : ''}`}
       style={{ backgroundColor: note.color || '#FFFFFF' }}
       onClick={onClick}
       draggable
@@ -290,7 +298,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
                   onSizeChange(s);
                   setShowSizePicker(false);
                 }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${note.size === s ? 'bg-rose-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${note.size === s ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
               >
                 {s.toUpperCase()}
               </button>
@@ -319,62 +327,64 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
               {currentStatus.label}
             </span>
             {note.isPinned && (
-              <span className="bg-rose-500 text-white p-1 rounded-full shadow-lg">
+              <span className="bg-purple-500 text-white p-1 rounded-full shadow-lg">
                 <Pin size={10} />
               </span>
             )}
           </div>
         </div>
       )}
-      <div className="p-6 flex-1 flex flex-col">
+      <div className="p-5 flex-1 flex flex-col">
         {!note.imageUrl && (
-          <div className="mb-3 flex justify-between items-center">
-            <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white" style={{ backgroundColor: currentStatus.color }}>
+          <div className="mb-2 flex justify-between items-center">
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider text-white" style={{ backgroundColor: currentStatus.color }}>
               {currentStatus.label}
             </span>
             {note.isPinned && (
-              <span className="text-rose-500">
-                <Pin size={14} />
+              <span className="text-purple-500">
+                <Pin size={12} />
               </span>
             )}
           </div>
         )}
-        <div className="flex justify-between items-start mb-3 gap-2">
-          <h3 className={`font-bold text-gray-900 line-clamp-2 group-hover:text-rose-500 transition-colors flex-1 ${note.size === 'lg' ? 'text-2xl' : 'text-lg'}`}>{note.title}</h3>
+        <div className="flex justify-between items-start mb-2 gap-2">
+          <h3 className={`font-bold text-gray-900 line-clamp-2 group-hover:text-purple-500 transition-colors flex-1 ${note.size === 'lg' ? 'text-xl' : 'text-base'}`}>{note.title}</h3>
           <div className="flex items-center gap-1 shrink-0">
             <button 
               onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-              className={`p-1.5 rounded-full transition-colors ${note.isCollapsed ? 'text-rose-500 bg-rose-50' : 'text-gray-300 hover:bg-gray-100'}`}
+              className={`p-1.5 rounded-full transition-colors ${note.isCollapsed ? 'text-purple-500 bg-purple-50' : 'text-gray-300 hover:bg-gray-100'}`}
               title={note.isCollapsed ? "Expand Note" : "Collapse Note"}
             >
-              {note.isCollapsed ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
+              {note.isCollapsed ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
             </button>
             <button 
               onClick={(e) => { e.stopPropagation(); onPin(); }}
-              className={`p-1.5 rounded-full transition-colors ${note.isPinned ? 'text-rose-500 bg-rose-50' : 'text-gray-300 hover:bg-gray-100'}`}
+              className={`p-1.5 rounded-full transition-colors ${note.isPinned ? 'text-purple-500 bg-purple-50' : 'text-gray-300 hover:bg-gray-100'}`}
               title={note.isPinned ? "Unpin Note" : "Pin Note"}
             >
-              <Pin size={16} fill={note.isPinned ? "currentColor" : "none"} />
+              <Pin size={14} fill={note.isPinned ? "currentColor" : "none"} />
             </button>
             <button 
               onClick={(e) => { e.stopPropagation(); onFavorite(); }}
               className={`p-1.5 rounded-full transition-colors ${note.isFavorite ? 'text-yellow-400 bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}
             >
-              <Star size={16} fill={note.isFavorite ? "currentColor" : "none"} />
+              <Star size={14} fill={note.isFavorite ? "currentColor" : "none"} />
             </button>
           </div>
         </div>
         
-        <div 
-          className={`text-gray-500 text-sm mb-4 flex-1 prose prose-base max-w-none leading-relaxed w-full overflow-hidden note-content ${note.isCollapsed ? 'line-clamp-1 max-h-[1.5rem]' : (viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5 max-h-[7.5rem]' : (note.size === 'lg' ? 'line-clamp-none' : ''))}`}
-          dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
-          style={{ 
-            textAlign: note.alignment || 'start',
-            fontFamily: userSettings.defaultFont,
-            fontSize: userSettings.defaultSize || '14px'
-          }}
-          dangerouslySetInnerHTML={{ __html: note.content }}
-        />
+        {!note.isCollapsed && (
+          <div 
+            className={`text-gray-500 text-sm mb-4 flex-1 prose prose-sm max-w-none leading-relaxed w-full overflow-hidden note-content ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-4' : (note.size === 'lg' ? 'line-clamp-none' : '')}`}
+            dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
+            style={{ 
+              textAlign: note.alignment || 'start',
+              fontFamily: userSettings.defaultFont,
+              fontSize: userSettings.defaultSize || '14px'
+            }}
+            dangerouslySetInnerHTML={{ __html: note.content }}
+          />
+        )}
 
         <div className="flex flex-wrap gap-1.5 mb-4">
           {note.tags.map(tag => (
@@ -387,7 +397,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         <div className="flex items-center justify-between pt-4 border-t border-gray-50">
           <div className="flex items-center gap-3 text-gray-400">
             {note.dueDate && (
-              <div className={`flex items-center gap-1 text-[10px] font-bold ${isAfter(new Date(), note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate)) ? 'text-rose-500' : ''}`}>
+              <div className={`flex items-center gap-1 text-[10px] font-bold ${isAfter(new Date(), note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate)) ? 'text-purple-500' : ''}`}>
                 <Calendar size={12} />
                 {format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'MMM d')}
               </div>
@@ -629,7 +639,7 @@ function FloatingWindow({
               </button>
             </>
           )}
-          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-1.5 hover:bg-rose-100 hover:text-rose-500 rounded-lg text-gray-500 transition-colors" title="Close">
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-1.5 hover:bg-purple-100 hover:text-purple-500 rounded-lg text-gray-500 transition-colors" title="Close">
             <X size={16} />
           </button>
         </div>
@@ -664,7 +674,7 @@ function FloatingWindow({
               </button>
               <button 
                 onClick={handleQuickSave}
-                className="px-4 py-2 text-sm font-bold bg-rose-500 text-white rounded-xl shadow-lg hover:bg-rose-600 transition-colors"
+                className="px-4 py-2 text-sm font-bold bg-purple-500 text-white rounded-xl shadow-lg hover:bg-purple-600 transition-colors"
               >
                 Save Changes
               </button>
@@ -686,7 +696,7 @@ function FloatingWindow({
               {!isQuickEditing && (
                 <button 
                   onClick={() => setIsQuickEditing(true)} 
-                  className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-100 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-100 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 border border-purple-100 rounded-xl text-xs font-bold text-purple-600 hover:bg-purple-100 transition-colors"
                 >
                   <Type size={14} /> Quick Edit
                 </button>
@@ -805,7 +815,7 @@ function TaskSidebar({
         <div className="flex items-center gap-1">
           <button 
             onClick={onTogglePin}
-            className={`p-2 rounded-lg transition-colors ${isPinned ? 'text-rose-500 bg-rose-50' : 'text-gray-400 hover:bg-gray-100'}`}
+            className={`p-2 rounded-lg transition-colors ${isPinned ? 'text-purple-500 bg-purple-50' : 'text-gray-400 hover:bg-gray-100'}`}
             title={isPinned ? "Unpin Sidebar" : "Pin Sidebar"}
           >
             <Pin size={16} fill={isPinned ? "currentColor" : "none"} />
@@ -825,7 +835,7 @@ function TaskSidebar({
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">My Lists</h3>
             <button 
               onClick={() => setShowAddList(!showAddList)}
-              className="p-1 text-rose-500 hover:bg-rose-50 rounded-md transition-colors"
+              className="p-1 text-purple-500 hover:bg-purple-50 rounded-md transition-colors"
             >
               <Plus size={16} />
             </button>
@@ -838,7 +848,7 @@ function TaskSidebar({
                 value={newListName}
                 onChange={(e) => setNewListName(e.target.value)}
                 placeholder="New list name..."
-                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && newListName.trim()) {
                     onAddList(newListName.trim());
@@ -879,7 +889,7 @@ function TaskSidebar({
                 ) : (
                   <button
                     onClick={() => onSelectList(list.id)}
-                    className={`flex-1 text-left px-3 py-2 rounded-xl text-sm font-medium transition-all ${activeListId === list.id ? 'bg-rose-50 text-rose-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                    className={`flex-1 text-left px-3 py-2 rounded-xl text-sm font-medium transition-all ${activeListId === list.id ? 'bg-purple-50 text-purple-600' : 'text-gray-600 hover:bg-gray-50'}`}
                   >
                     {list.name}
                   </button>
@@ -919,14 +929,14 @@ function TaskSidebar({
           className="relative"
           onDragOver={(e) => {
             e.preventDefault();
-            e.currentTarget.classList.add('bg-rose-50');
+            e.currentTarget.classList.add('bg-purple-50');
           }}
           onDragLeave={(e) => {
-            e.currentTarget.classList.remove('bg-rose-50');
+            e.currentTarget.classList.remove('bg-purple-50');
           }}
           onDrop={(e) => {
             e.preventDefault();
-            e.currentTarget.classList.remove('bg-rose-50');
+            e.currentTarget.classList.remove('bg-purple-50');
             const noteId = e.dataTransfer.getData('noteId');
             if (noteId) {
               const note = notes.find(n => n.id === noteId);
@@ -936,8 +946,8 @@ function TaskSidebar({
             }
           }}
         >
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 hover:border-rose-300 transition-all group">
-            <Plus size={20} className="text-gray-400 group-hover:text-rose-500" />
+          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 hover:border-purple-300 transition-all group">
+            <Plus size={20} className="text-gray-400 group-hover:text-purple-500" />
             <input 
               type="text"
               value={newTaskTitle}
@@ -959,7 +969,7 @@ function TaskSidebar({
         <div className="space-y-6">
           {pinnedTasks.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-2">
+              <h4 className="text-[10px] font-bold text-purple-500 uppercase tracking-widest flex items-center gap-2">
                 <Pin size={10} /> Pinned
               </h4>
               <div className="space-y-2">
@@ -1047,7 +1057,7 @@ function TaskItem({
     >
       <button 
         onClick={(e) => { e.stopPropagation(); onToggle(task.id, !task.isCompleted); }}
-        className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${task.isCompleted ? 'bg-rose-500 border-rose-500 text-white' : 'border-gray-200 hover:border-rose-400'}`}
+        className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${task.isCompleted ? 'bg-purple-500 border-purple-500 text-white' : 'border-gray-200 hover:border-purple-400'}`}
       >
         {task.isCompleted && <CheckSquare size={12} />}
       </button>
@@ -1173,7 +1183,9 @@ function AppContent() {
     defaultTaskListId: null,
     startupFolderId: null,
     startupTaskListId: null,
-    enableNotifications: false
+    enableNotifications: false,
+    isSidebarCollapsed: false,
+    gridColumns: 3
   });
   const [activeWindows, setActiveWindows] = useState<ActiveWindow[]>([]);
   const [maxZIndex, setMaxZIndex] = useState(100);
@@ -1855,6 +1867,19 @@ function AppContent() {
     await updateDoc(docRef, { color, updatedAt: serverTimestamp() });
   };
 
+  const updateFolderBackground = async (folderId: string, background: string) => {
+    if (!isAdmin) return;
+    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'folders', folderId);
+    await updateDoc(docRef, { background, updatedAt: serverTimestamp() });
+  };
+
+  const updateStatusBackground = async (statusId: string, background: string) => {
+    if (!isAdmin) return;
+    // For workflow board, we might want to set background per status column
+    setStatuses(prev => prev.map(s => s.id === statusId ? { ...s, background } : s));
+    // In a real app, this would be saved to Firestore
+  };
+
   const deleteNote = async (id: string) => {
     if (!isAdmin) return;
     const note = notes.find(n => n.id === id);
@@ -1937,7 +1962,7 @@ function AppContent() {
       <motion.div 
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        className="w-12 h-12 border-4 border-rose-500 border-t-transparent rounded-full"
+        className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full"
       />
     </div>
   );
@@ -1950,14 +1975,14 @@ function AppContent() {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full bg-white p-10 rounded-[3rem] shadow-2xl border border-gray-100 text-center"
         >
-          <div className="w-20 h-20 bg-rose-100 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+          <div className="w-20 h-20 bg-purple-100 text-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
             <Folder size={40} />
           </div>
           <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">Notes For Myself</h1>
           <p className="text-gray-500 mb-10 font-medium">Admin Login Required</p>
           
           {authError && (
-            <div className="bg-rose-50 text-rose-600 p-4 rounded-2xl text-sm font-medium mb-8 border border-rose-100">
+            <div className="bg-purple-50 text-purple-600 p-4 rounded-2xl text-sm font-medium mb-8 border border-purple-100">
               {authError}
             </div>
           )}
@@ -1967,13 +1992,13 @@ function AppContent() {
             value={loginPassword} 
             onChange={(e) => setLoginPassword(e.target.value)}
             placeholder="Enter Admin Password" 
-            className="w-full p-5 bg-gray-50 border border-gray-200 rounded-2xl mb-6 text-center focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-lg font-bold tracking-widest"
+            className="w-full p-5 bg-gray-50 border border-gray-200 rounded-2xl mb-6 text-center focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-lg font-bold tracking-widest"
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
           />
           
           <button 
             onClick={handleLogin}
-            className="w-full bg-rose-500 text-white py-5 rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all active:translate-y-0"
+            className="w-full bg-purple-500 text-white py-5 rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all active:translate-y-0"
           >
             Access Notes
           </button>
@@ -1987,28 +2012,28 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F7F7] text-[#222222] font-sans selection:bg-rose-100">
+    <div className="min-h-screen bg-[#F9F7FF] text-[#222222] font-sans selection:bg-purple-100" style={{ backgroundColor: currentFolderId ? folders.find(f => f.id === currentFolderId)?.background : undefined }}>
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-[50] px-4 md:px-8 py-4">
+      <header className="bg-white/80 backdrop-blur-md border-b border-purple-100 sticky top-0 z-[50] px-4 md:px-8 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors md:hidden"
+              className="p-2 hover:bg-purple-50 rounded-full transition-colors md:hidden"
             >
               <Menu size={24} />
             </button>
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}>
-              <div className="w-10 h-10 bg-rose-500 rounded-xl flex items-center justify-center text-white shrink-0">
+              <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-purple-200">
                 <PlusCircle size={24} />
               </div>
-              <h1 className="text-xl font-bold tracking-tight hidden sm:block truncate">Notes For Myself</h1>
+              <h1 className="text-xl font-bold tracking-tight hidden sm:block truncate text-gray-800">Notes For Myself</h1>
             </div>
-            <div className="hidden md:flex items-center gap-1 ml-2 border-l pl-4 border-gray-200">
+            <div className="hidden md:flex items-center gap-1 ml-2 border-l pl-4 border-gray-100">
               <button 
                 onClick={handleUndo}
                 disabled={historyIndex < 0}
-                className={`p-2 rounded-xl transition-all ${historyIndex < 0 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100 hover:text-rose-500'}`}
+                className={`p-2 rounded-xl transition-all ${historyIndex < 0 ? 'text-gray-300' : 'text-gray-600 hover:bg-purple-50 hover:text-purple-500'}`}
                 title="Undo (Ctrl+Z)"
               >
                 <Undo2 size={20} />
@@ -2016,7 +2041,7 @@ function AppContent() {
               <button 
                 onClick={handleRedo}
                 disabled={historyIndex >= history.length - 1}
-                className={`p-2 rounded-xl transition-all ${historyIndex >= history.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100 hover:text-rose-500'}`}
+                className={`p-2 rounded-xl transition-all ${historyIndex >= history.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-purple-50 hover:text-purple-500'}`}
                 title="Redo (Ctrl+Y)"
               >
                 <Redo2 size={20} />
@@ -2024,24 +2049,24 @@ function AppContent() {
             </div>
           </div>
 
-          {/* Search Bar - Airbnb Style */}
-          <div className="hidden md:flex relative items-center bg-white border border-gray-300 rounded-full py-2 px-4 shadow-sm hover:shadow-md transition-shadow max-w-md w-full mx-4">
-            <Search size={18} className="text-gray-500 mr-2" />
+          {/* Search Bar */}
+          <div className="hidden md:flex relative items-center bg-white border border-purple-100 rounded-full py-2 px-4 shadow-sm hover:shadow-md transition-shadow max-w-md w-full mx-4">
+            <Search size={18} className="text-gray-400 mr-2" />
             <input 
               type="text" 
-              placeholder="Search notes, tags, content..."
-              className="bg-transparent border-none focus:outline-none w-full text-sm font-medium"
+              placeholder="Search notes, tags..."
+              className="bg-transparent border-none focus:outline-none w-full text-sm font-medium placeholder:text-gray-300"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <div className="h-6 w-px bg-gray-300 mx-2" />
+            <div className="h-6 w-px bg-gray-100 mx-2" />
             <button 
               onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className={`p-2 rounded-full transition-colors relative ${showFilterDropdown ? 'bg-rose-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+              className={`p-2 rounded-full transition-colors relative ${showFilterDropdown ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
             >
               <Filter size={14} />
               {statusFilter !== 'all' && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 border-2 border-white rounded-full" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 border-2 border-white rounded-full" />
               )}
             </button>
 
@@ -2052,25 +2077,25 @@ function AppContent() {
                   <div className="grid grid-cols-2 gap-2">
                     <button 
                       onClick={() => { setViewMode('board'); setShowFilterDropdown(false); }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'board' ? 'bg-rose-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'board' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
                     >
                       <Grid size={14} /> Board
                     </button>
                     <button 
                       onClick={() => { setViewMode('favorites'); setShowFilterDropdown(false); }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'favorites' ? 'bg-rose-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'favorites' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
                     >
                       <Star size={14} /> Favorites
                     </button>
                     <button 
                       onClick={() => { setViewMode('due'); setShowFilterDropdown(false); }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'due' ? 'bg-rose-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'due' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
                     >
                       <Clock size={14} /> Upcoming
                     </button>
                     <button 
                       onClick={() => { setViewMode('archive'); setShowFilterDropdown(false); }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'archive' ? 'bg-rose-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'archive' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
                     >
                       <Archive size={14} /> Archive
                     </button>
@@ -2082,7 +2107,7 @@ function AppContent() {
                   <div className="space-y-1">
                     <button 
                       onClick={() => { setStatusFilter('all'); setShowFilterDropdown(false); }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === 'all' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-50 text-gray-700'}`}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === 'all' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}
                     >
                       <span>All Statuses</span>
                       {statusFilter === 'all' && <CheckCircle2 size={14} />}
@@ -2091,7 +2116,7 @@ function AppContent() {
                       <button 
                         key={s.id}
                         onClick={() => { setStatusFilter(s.id); setShowFilterDropdown(false); }}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === s.id ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-50 text-gray-700'}`}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === s.id ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}
                       >
                         <span>{s.label}</span>
                         {statusFilter === s.id && <CheckCircle2 size={14} />}
@@ -2104,17 +2129,37 @@ function AppContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-full">
+            {currentFolderId && isAdmin && (
+              <div className="relative group/bg">
+                <button 
+                  className="p-2 hover:bg-purple-50 rounded-full text-gray-400 hover:text-purple-500 transition-colors"
+                  title="Board Background"
+                >
+                  <Palette size={20} />
+                </button>
+                <div className="absolute top-full right-0 mt-2 p-3 bg-white rounded-2xl shadow-2xl border border-purple-50 hidden group-hover/bg:grid grid-cols-4 gap-2 z-50 w-48">
+                  {['#F9F7FF', '#FFF7F7', '#F7FFF7', '#F7F7FF', '#FFFBF0', '#F0FBFF', '#FBF0FF', '#FFFFFF'].map(bg => (
+                    <button
+                      key={bg}
+                      onClick={() => updateFolderBackground(currentFolderId, bg)}
+                      className="w-8 h-8 rounded-lg border border-gray-100 hover:scale-110 transition-transform"
+                      style={{ backgroundColor: bg }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-full border border-gray-100">
               <button 
                 onClick={() => setUserSettings(prev => ({ ...prev, cardViewMode: 'compact' }))}
-                className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'compact' ? 'bg-white shadow-sm text-rose-500' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'compact' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
                 title="Compact View"
               >
                 <Grid size={16} />
               </button>
               <button 
                 onClick={() => setUserSettings(prev => ({ ...prev, cardViewMode: 'full' }))}
-                className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'full' ? 'bg-white shadow-sm text-rose-500' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'full' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
                 title="Full View"
               >
                 <List size={16} />
@@ -2124,14 +2169,14 @@ function AppContent() {
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setIsTaskSidebarOpen(!isTaskSidebarOpen)}
-                className={`p-2 rounded-full transition-colors ${isTaskSidebarOpen ? 'bg-rose-500 text-white shadow-lg' : 'hover:bg-gray-100 text-gray-600'}`}
+                className={`p-2 rounded-full transition-colors ${isTaskSidebarOpen ? 'bg-purple-500 text-white shadow-lg shadow-purple-200' : 'hover:bg-purple-50 text-gray-600'}`}
                 title="Tasks"
               >
                 <CheckSquare size={20} />
               </button>
               <button 
                 onClick={() => { setEditNoteData(null); resetNoteForm(); setShowAddNoteModal(true); }}
-                className="bg-rose-500 text-white p-2 sm:px-4 sm:py-2 rounded-full text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2 group"
+                className="bg-purple-500 text-white p-2 sm:px-4 sm:py-2 rounded-full text-sm font-bold shadow-lg shadow-purple-200 hover:shadow-purple-300 hover:-translate-y-0.5 transition-all flex items-center gap-2 group"
                 title="New Note"
               >
                 <Plus size={18} className="group-hover:rotate-90 transition-transform" /> 
@@ -2139,14 +2184,14 @@ function AppContent() {
               </button>
               <button 
                 onClick={() => setShowSettingsModal(true)}
-                className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition-colors"
+                className="p-2 hover:bg-purple-50 rounded-full text-gray-600 transition-colors"
                 title="Settings"
               >
                 <Settings size={20} />
               </button>
               <button 
                 onClick={handleLogout}
-                className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition-colors"
+                className="p-2 hover:bg-purple-50 rounded-full text-gray-600 transition-colors"
                 title="Logout"
               >
                 <LogOut size={20} />
@@ -2158,61 +2203,74 @@ function AppContent() {
 
       <div className="flex w-full">
         {/* Sidebar - Desktop */}
-        <aside className="hidden md:block w-64 p-6 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto border-r border-gray-100">
+        <aside className={`hidden md:block transition-all duration-300 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto border-r border-gray-100 ${userSettings.isSidebarCollapsed ? 'w-20' : 'w-64'} p-4`}>
+          <div className="flex justify-end mb-4">
+            <button 
+              onClick={() => setUserSettings(prev => ({ ...prev, isSidebarCollapsed: !prev.isSidebarCollapsed }))}
+              className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 transition-colors"
+            >
+              <ChevronLeft size={18} className={`transition-transform duration-300 ${userSettings.isSidebarCollapsed ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
           <nav className="space-y-6">
             <div>
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-2">Navigation</h3>
+              {!userSettings.isSidebarCollapsed && <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-2">Navigation</h3>}
               <ul className="space-y-1">
                 <li>
                   <button 
                     onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'board' && !currentFolderId ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-100 text-gray-700'}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'board' && !currentFolderId ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                    title="All Notes"
                   >
-                    <Grid size={18} /> All Notes
+                    <Grid size={18} /> {!userSettings.isSidebarCollapsed && 'All Notes'}
                   </button>
                 </li>
                 <li>
                   <button 
                     onClick={() => setViewMode('workflow')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'workflow' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-100 text-gray-700'}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'workflow' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                    title="Workflow Board"
                   >
-                    <Layout size={18} /> Workflow Board
+                    <Layout size={18} /> {!userSettings.isSidebarCollapsed && 'Workflow Board'}
                   </button>
                 </li>
                 <li>
                   <button 
                     onClick={() => setViewMode('favorites')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'favorites' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-100 text-gray-700'}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'favorites' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                    title="Favorites"
                   >
-                    <Star size={18} /> Favorites
+                    <Star size={18} /> {!userSettings.isSidebarCollapsed && 'Favorites'}
                   </button>
                 </li>
                 <li>
                   <button 
                     onClick={() => setViewMode('due')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'due' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-100 text-gray-700'}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'due' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                    title="Upcoming"
                   >
-                    <Clock size={18} /> Upcoming
+                    <Clock size={18} /> {!userSettings.isSidebarCollapsed && 'Upcoming'}
                   </button>
                 </li>
                 <li>
                   <button 
                     onClick={() => setViewMode('archive')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'archive' ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-100 text-gray-700'}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'archive' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                    title="Archive"
                   >
-                    <Archive size={18} /> Archive
+                    <Archive size={18} /> {!userSettings.isSidebarCollapsed && 'Archive'}
                   </button>
                 </li>
               </ul>
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-4 px-2">
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Folders</h3>
-                {isAdmin && (
+              <div className={`flex items-center justify-between mb-4 px-2 ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}>
+                {!userSettings.isSidebarCollapsed && <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Folders</h3>}
+                {isAdmin && !userSettings.isSidebarCollapsed && (
                   <button 
                     onClick={() => { setEditFolderData(null); setShowAddFolderModal(true); }} 
-                    className="text-rose-500 hover:bg-rose-50 p-1 rounded transition-colors"
+                    className="text-purple-500 hover:bg-purple-50 p-1 rounded transition-colors"
                     title="New Folder"
                   >
                     <Plus size={14} />
@@ -2224,11 +2282,12 @@ function AppContent() {
                   <li key={folder.id} className="group/folder relative">
                     <button 
                       onClick={() => { setCurrentFolderId(folder.id); setViewMode('board'); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentFolderId === folder.id ? 'bg-rose-50 text-rose-600' : 'hover:bg-gray-100 text-gray-700'}`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentFolderId === folder.id ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                      title={folder.name}
                     >
-                      <Folder size={18} /> {folder.name}
+                      <Folder size={18} /> {!userSettings.isSidebarCollapsed && folder.name}
                     </button>
-                    {isAdmin && (
+                    {isAdmin && !userSettings.isSidebarCollapsed && (
                       <button 
                         onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
                         className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-rose-500 opacity-0 group-hover/folder:opacity-100 transition-all"
@@ -2342,7 +2401,12 @@ function AppContent() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-min">
+            <div 
+              className="grid gap-6 auto-rows-min"
+              style={{ 
+                gridTemplateColumns: `repeat(${isMobile ? 1 : userSettings.gridColumns}, minmax(0, 1fr))` 
+              }}
+            >
               <AnimatePresence mode="popLayout">
                 {sortedNotes.map((note) => (
                   <NoteCard 
@@ -2998,7 +3062,7 @@ function SettingsModal({
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-2">Default Font</label>
                     <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
                       value={localSettings.defaultFont}
                       onChange={(e) => setLocalSettings({ ...localSettings, defaultFont: e.target.value })}
                     >
@@ -3011,7 +3075,7 @@ function SettingsModal({
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-2">Default Size</label>
                     <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
                       value={localSettings.defaultSize}
                       onChange={(e) => setLocalSettings({ ...localSettings, defaultSize: e.target.value })}
                     >
@@ -3024,7 +3088,7 @@ function SettingsModal({
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-2">Default Alignment</label>
                     <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
                       value={localSettings.defaultAlignment}
                       onChange={(e) => setLocalSettings({ ...localSettings, defaultAlignment: e.target.value as any })}
                     >
@@ -3036,7 +3100,7 @@ function SettingsModal({
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-2">Default Folder</label>
                     <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
                       value={localSettings.defaultFolderId || ''}
                       onChange={(e) => setLocalSettings({ ...localSettings, defaultFolderId: e.target.value || null })}
                     >
@@ -3049,7 +3113,7 @@ function SettingsModal({
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-2">Default Task List</label>
                     <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
                       value={localSettings.defaultTaskListId || ''}
                       onChange={(e) => setLocalSettings({ ...localSettings, defaultTaskListId: e.target.value || null })}
                     >
@@ -3062,7 +3126,7 @@ function SettingsModal({
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-2">Startup Folder</label>
                     <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
                       value={localSettings.startupFolderId || ''}
                       onChange={(e) => setLocalSettings({ ...localSettings, startupFolderId: e.target.value || null })}
                     >
