@@ -228,9 +228,9 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
   const [showSizePicker, setShowSizePicker] = useState(false);
 
   const sizeClasses = {
-    sm: 'col-span-1 row-span-1 min-h-[80px]',
-    md: 'col-span-1 md:col-span-2 row-span-1 min-h-[120px]',
-    lg: 'col-span-1 md:col-span-2 row-span-2 min-h-[250px]'
+    sm: 'col-span-1 row-span-1 min-h-[60px]',
+    md: 'col-span-1 md:col-span-2 row-span-1 min-h-[100px]',
+    lg: 'col-span-1 md:col-span-2 row-span-2 min-h-[200px]'
   };
 
   return (
@@ -245,7 +245,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           setShowColorPicker(true);
         }
       }}
-      className={`group rounded-[1.5rem] overflow-hidden shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500 border border-gray-100 flex flex-col backdrop-blur-sm relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-2 ring-purple-400 ring-offset-2' : ''}`}
+      className={`group rounded-2xl overflow-hidden shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500 border border-gray-100 flex flex-col backdrop-blur-sm relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-2 ring-purple-400 ring-offset-2' : ''}`}
       style={{ backgroundColor: note.color || '#FFFFFF' }}
       onClick={onClick}
       draggable
@@ -335,9 +335,9 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           </div>
         </div>
       )}
-      <div className="p-4 flex-1 flex flex-col">
+      <div className="p-3 flex-1 flex flex-col">
         {!note.imageUrl && (
-          <div className="mb-1.5 flex justify-between items-center">
+          <div className="mb-1 flex justify-between items-center">
             <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider text-white" style={{ backgroundColor: currentStatus.color }}>
               {currentStatus.label}
             </span>
@@ -348,7 +348,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
             )}
           </div>
         )}
-        <div className="flex justify-between items-start mb-1.5 gap-2">
+        <div className="flex justify-between items-start mb-1 gap-2">
           <h3 className={`font-bold text-gray-900 line-clamp-2 group-hover:text-purple-500 transition-colors flex-1 ${note.size === 'lg' ? 'text-xl' : 'text-base'}`}>{note.title}</h3>
           <div className="flex items-center gap-1 shrink-0">
             <button 
@@ -376,7 +376,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         
         {!note.isCollapsed && (
           <div 
-            className={`text-gray-500 text-sm mb-3 flex-1 prose prose-sm max-w-none leading-relaxed w-full overflow-hidden note-content ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-4' : (note.size === 'lg' ? 'line-clamp-none' : '')}`}
+            className={`text-gray-500 text-sm mb-2 flex-1 prose prose-sm prose-p:my-0.5 prose-headings:my-1 prose-ul:my-1 prose-li:my-0 max-w-none leading-relaxed w-full overflow-hidden note-content ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-4' : (note.size === 'lg' ? 'line-clamp-none' : '')}`}
             dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
             style={{ 
               textAlign: note.alignment || 'start',
@@ -387,7 +387,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           />
         )}
 
-        <div className="flex flex-wrap gap-1.5 mb-3">
+        <div className="flex flex-wrap gap-1.5 mb-2">
           {note.tags.map(tag => (
             <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
               #{tag}
@@ -395,7 +395,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           ))}
         </div>
 
-        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+        <div className="flex items-center justify-between pt-2 border-t border-gray-50">
           <div className="flex items-center gap-3 text-gray-400">
             {note.dueDate && (
               <div className={`flex items-center gap-1 text-[10px] font-bold ${isAfter(new Date(), note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate)) ? 'text-purple-500' : ''}`}>
@@ -2152,18 +2152,41 @@ function AppContent() {
               </div>
             )}
             <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-full border border-gray-100">
-              <div className="hidden lg:flex items-center gap-1 border-r border-gray-200 pr-1 mr-1">
-                {[1, 2, 3, 4, 5, 6].map(cols => (
-                  <button 
-                    key={cols}
-                    onClick={() => setUserSettings(prev => ({ ...prev, gridColumns: cols }))}
-                    className={`w-7 h-7 flex items-center justify-center rounded-full text-[10px] font-bold transition-all ${userSettings.gridColumns === cols ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
-                    title={`${cols} Columns`}
-                  >
-                    {cols}
-                  </button>
-                ))}
+              <div className="relative group/layout">
+                <button 
+                  className="p-1.5 rounded-full text-gray-400 hover:text-purple-500 transition-colors flex items-center gap-1.5 bg-white/50 border border-transparent hover:border-purple-100"
+                  title="Grid Density"
+                >
+                  <div className="flex items-end gap-0.5 h-3">
+                    {[1, 2, 3, 4].map(i => (
+                      <div 
+                        key={i} 
+                        className={`w-0.5 rounded-full transition-all ${userSettings.gridColumns >= (7-i*1.5) ? 'bg-purple-500' : 'bg-gray-300'}`} 
+                        style={{ height: `${25 + i * 25}%` }} 
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-500">{userSettings.gridColumns}</span>
+                </button>
+                <div className="absolute top-full right-0 mt-2 p-3 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-purple-50 hidden group-hover/layout:flex flex-col gap-3 z-50 min-w-[180px] animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Grid Density</span>
+                    <span className="text-[10px] font-bold text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full">{userSettings.gridColumns} Cols</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5, 6].map(cols => (
+                      <button 
+                        key={cols}
+                        onClick={() => setUserSettings(prev => ({ ...prev, gridColumns: cols }))}
+                        className={`flex-1 h-9 flex items-center justify-center rounded-xl text-xs font-bold transition-all ${userSettings.gridColumns === cols ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-gray-400 hover:bg-purple-50 hover:text-purple-500'}`}
+                      >
+                        {cols}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
+              <div className="w-px h-4 bg-gray-200 mx-1" />
               <button 
                 onClick={() => setUserSettings(prev => ({ ...prev, cardViewMode: 'compact' }))}
                 className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'compact' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
@@ -2440,7 +2463,7 @@ function AppContent() {
             </div>
           ) : (
             <div 
-              className="grid gap-6 auto-rows-min"
+              className="grid gap-6 auto-rows-min grid-flow-dense"
               style={{ 
                 gridTemplateColumns: `repeat(${isMobile ? 1 : userSettings.gridColumns}, minmax(0, 1fr))` 
               }}
