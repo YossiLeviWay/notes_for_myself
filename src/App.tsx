@@ -683,7 +683,7 @@ function FloatingWindow({
       {/* Content */}
       <div className="flex-1 flex overflow-hidden">
         <div 
-          className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 max-w-none w-full note-content ${!isQuickEditing ? 'prose prose-lg' : ''}`} 
+          className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 max-w-none w-full note-content ${!isQuickEditing ? 'prose prose-lg' : ''} ${userSettings.theme === 'dark' ? 'bg-gray-900/40' : 'bg-white/40'}`} 
           dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
           style={{ 
             fontFamily: userSettings.defaultFont, 
