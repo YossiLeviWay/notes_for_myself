@@ -228,9 +228,9 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
   const [showSizePicker, setShowSizePicker] = useState(false);
 
   const sizeClasses = {
-    sm: 'col-span-1 row-span-1 min-h-[100px]',
-    md: 'col-span-1 md:col-span-2 row-span-1 min-h-[150px]',
-    lg: 'col-span-1 md:col-span-2 row-span-2 min-h-[300px]'
+    sm: 'col-span-1 row-span-1 min-h-[80px]',
+    md: 'col-span-1 md:col-span-2 row-span-1 min-h-[120px]',
+    lg: 'col-span-1 md:col-span-2 row-span-2 min-h-[250px]'
   };
 
   return (
@@ -335,9 +335,9 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           </div>
         </div>
       )}
-      <div className="p-5 flex-1 flex flex-col">
+      <div className="p-4 flex-1 flex flex-col">
         {!note.imageUrl && (
-          <div className="mb-2 flex justify-between items-center">
+          <div className="mb-1.5 flex justify-between items-center">
             <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider text-white" style={{ backgroundColor: currentStatus.color }}>
               {currentStatus.label}
             </span>
@@ -348,7 +348,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
             )}
           </div>
         )}
-        <div className="flex justify-between items-start mb-2 gap-2">
+        <div className="flex justify-between items-start mb-1.5 gap-2">
           <h3 className={`font-bold text-gray-900 line-clamp-2 group-hover:text-purple-500 transition-colors flex-1 ${note.size === 'lg' ? 'text-xl' : 'text-base'}`}>{note.title}</h3>
           <div className="flex items-center gap-1 shrink-0">
             <button 
@@ -376,7 +376,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         
         {!note.isCollapsed && (
           <div 
-            className={`text-gray-500 text-sm mb-4 flex-1 prose prose-sm max-w-none leading-relaxed w-full overflow-hidden note-content ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-4' : (note.size === 'lg' ? 'line-clamp-none' : '')}`}
+            className={`text-gray-500 text-sm mb-3 flex-1 prose prose-sm max-w-none leading-relaxed w-full overflow-hidden note-content ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-4' : (note.size === 'lg' ? 'line-clamp-none' : '')}`}
             dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
             style={{ 
               textAlign: note.alignment || 'start',
@@ -387,7 +387,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           />
         )}
 
-        <div className="flex flex-wrap gap-1.5 mb-4">
+        <div className="flex flex-wrap gap-1.5 mb-3">
           {note.tags.map(tag => (
             <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
               #{tag}
@@ -2152,6 +2152,18 @@ function AppContent() {
               </div>
             )}
             <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-full border border-gray-100">
+              <div className="hidden lg:flex items-center gap-1 border-r border-gray-200 pr-1 mr-1">
+                {[1, 2, 3, 4, 5, 6].map(cols => (
+                  <button 
+                    key={cols}
+                    onClick={() => setUserSettings(prev => ({ ...prev, gridColumns: cols }))}
+                    className={`w-7 h-7 flex items-center justify-center rounded-full text-[10px] font-bold transition-all ${userSettings.gridColumns === cols ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
+                    title={`${cols} Columns`}
+                  >
+                    {cols}
+                  </button>
+                ))}
+              </div>
               <button 
                 onClick={() => setUserSettings(prev => ({ ...prev, cardViewMode: 'compact' }))}
                 className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'compact' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
@@ -2221,46 +2233,66 @@ function AppContent() {
                 <li>
                   <button 
                     onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'board' && !currentFolderId ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
-                    title="All Notes"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'board' && !currentFolderId ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                   >
                     <Grid size={18} /> {!userSettings.isSidebarCollapsed && 'All Notes'}
+                    {userSettings.isSidebarCollapsed && (
+                      <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all shadow-lg translate-x-2 group-hover/tooltip:translate-x-0">
+                        All Notes
+                      </div>
+                    )}
                   </button>
                 </li>
                 <li>
                   <button 
                     onClick={() => setViewMode('workflow')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'workflow' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
-                    title="Workflow Board"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'workflow' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                   >
                     <Layout size={18} /> {!userSettings.isSidebarCollapsed && 'Workflow Board'}
+                    {userSettings.isSidebarCollapsed && (
+                      <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all shadow-lg translate-x-2 group-hover/tooltip:translate-x-0">
+                        Workflow Board
+                      </div>
+                    )}
                   </button>
                 </li>
                 <li>
                   <button 
                     onClick={() => setViewMode('favorites')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'favorites' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
-                    title="Favorites"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'favorites' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                   >
                     <Star size={18} /> {!userSettings.isSidebarCollapsed && 'Favorites'}
+                    {userSettings.isSidebarCollapsed && (
+                      <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all shadow-lg translate-x-2 group-hover/tooltip:translate-x-0">
+                        Favorites
+                      </div>
+                    )}
                   </button>
                 </li>
                 <li>
                   <button 
                     onClick={() => setViewMode('due')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'due' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
-                    title="Upcoming"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'due' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                   >
                     <Clock size={18} /> {!userSettings.isSidebarCollapsed && 'Upcoming'}
+                    {userSettings.isSidebarCollapsed && (
+                      <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all shadow-lg translate-x-2 group-hover/tooltip:translate-x-0">
+                        Upcoming
+                      </div>
+                    )}
                   </button>
                 </li>
                 <li>
                   <button 
                     onClick={() => setViewMode('archive')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${viewMode === 'archive' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
-                    title="Archive"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'archive' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                   >
                     <Archive size={18} /> {!userSettings.isSidebarCollapsed && 'Archive'}
+                    {userSettings.isSidebarCollapsed && (
+                      <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all shadow-lg translate-x-2 group-hover/tooltip:translate-x-0">
+                        Archive
+                      </div>
+                    )}
                   </button>
                 </li>
               </ul>
@@ -2284,10 +2316,14 @@ function AppContent() {
                   <li key={folder.id} className="group/folder relative">
                     <button 
                       onClick={() => { setCurrentFolderId(folder.id); setViewMode('board'); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentFolderId === folder.id ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
-                      title={folder.name}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${currentFolderId === folder.id ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                     >
                       <Folder size={18} /> {!userSettings.isSidebarCollapsed && folder.name}
+                      {userSettings.isSidebarCollapsed && (
+                        <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all shadow-lg translate-x-2 group-hover/tooltip:translate-x-0">
+                          {folder.name}
+                        </div>
+                      )}
                     </button>
                     {isAdmin && !userSettings.isSidebarCollapsed && (
                       <button 
@@ -3151,6 +3187,28 @@ function SettingsModal({
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Grid Columns (Main Board)</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="6"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.gridColumns}
+                      onChange={(e) => setLocalSettings({ ...localSettings, gridColumns: parseInt(e.target.value) || 3 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Max Notes per Column (Workflow)</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="100"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                      value={localSettings.notesPerColumn}
+                      onChange={(e) => setLocalSettings({ ...localSettings, notesPerColumn: parseInt(e.target.value) || 10 })}
+                    />
+                  </div>
                   <div className="md:col-span-3">
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
                       <div className="flex items-center gap-3">
@@ -3175,35 +3233,6 @@ function SettingsModal({
                         {localSettings.enableNotifications ? 'Enabled' : 'Enable'}
                       </button>
                     </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Board Layout */}
-              <section className="space-y-4">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Board Layout</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Grid Columns (Main Board)</label>
-                    <input 
-                      type="number" 
-                      min="1" 
-                      max="6"
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.gridColumns}
-                      onChange={(e) => setLocalSettings({ ...localSettings, gridColumns: parseInt(e.target.value) || 3 })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Max Notes per Column (Workflow)</label>
-                    <input 
-                      type="number" 
-                      min="1" 
-                      max="100"
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.notesPerColumn}
-                      onChange={(e) => setLocalSettings({ ...localSettings, notesPerColumn: parseInt(e.target.value) || 10 })}
-                    />
                   </div>
                 </div>
               </section>
