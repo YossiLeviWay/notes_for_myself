@@ -924,7 +924,7 @@ function TaskSidebar({
       className={`bg-white border-l border-gray-100 flex flex-col transition-all duration-300 z-[40] ${isPinned ? 'relative h-[calc(100vh-80px)] sticky top-20' : 'fixed right-0 top-20 h-[calc(100vh-80px)] shadow-2xl'}`}
       style={{ width: 320 }}
     >
-      <div className="p-6 border-b flex items-center justify-between bg-gray-50/50">
+      <div className="p-4 border-b flex items-center justify-between bg-gray-50/50">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-purple-500 text-white rounded-xl shadow-lg">
             <CheckSquare size={20} />
@@ -947,7 +947,7 @@ function TaskSidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
         {/* List Selector */}
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -1065,27 +1065,54 @@ function TaskSidebar({
             }
           }}
         >
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 hover:border-purple-300 transition-all group">
-            <Plus size={20} className="text-gray-400 group-hover:text-purple-500" />
-            <input 
-              type="text"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              placeholder="Add a task..."
-              className="bg-transparent border-none focus:ring-0 text-sm font-medium w-full placeholder:text-gray-400"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newTaskTitle.trim()) {
-                  onAddTask(newTaskTitle.trim());
-                  setNewTaskTitle('');
-                }
-              }}
-            />
+          <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 hover:border-purple-300 transition-all group relative">
+            <Plus size={20} className="text-gray-400 group-hover:text-purple-500 mt-1" />
+            <div className="flex-1">
+              <textarea 
+                rows={1}
+                value={newTaskTitle}
+                onChange={(e) => {
+                  setNewTaskTitle(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
+                placeholder="Add a task..."
+                className="bg-transparent border-none focus:ring-0 text-sm font-medium w-full placeholder:text-gray-400 resize-none overflow-hidden py-1 leading-relaxed"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && newTaskTitle.trim()) {
+                    e.preventDefault();
+                    onAddTask(newTaskTitle.trim());
+                    setNewTaskTitle('');
+                    e.currentTarget.style.height = 'auto';
+                  }
+                }}
+              />
+            </div>
+
+            <AnimatePresence>
+              {newTaskTitle.length > 30 && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                  className="absolute bottom-full left-0 right-0 mb-4 p-4 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-purple-100 z-[60] pointer-events-none"
+                >
+                  <div className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <Type size={12} /> Full Task Preview
+                  </div>
+                  <p className="text-sm text-gray-700 font-medium leading-relaxed break-words">
+                    {newTaskTitle}
+                  </p>
+                  <div className="absolute -bottom-2 left-6 w-4 h-4 bg-white border-r border-b border-purple-100 rotate-45" />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           <p className="text-[10px] text-gray-400 mt-2 px-2">Tip: Drag a note here to link it as a task</p>
         </div>
 
         {/* Task List */}
-        <div className="space-y-6">
+        <div className="space-y-3">
           {pinnedTasks.length > 0 && (
             <div className="space-y-3">
               <h4 className="text-[10px] font-bold text-purple-500 uppercase tracking-widest flex items-center gap-2">
@@ -1171,7 +1198,7 @@ function TaskItem({
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`group flex items-start gap-3 p-3 rounded-2xl transition-all border ${task.isCompleted ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'} ${task.noteId ? 'cursor-pointer' : ''}`}
+      className={`group flex items-start gap-3 p-2 rounded-2xl transition-all border ${task.isCompleted ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'} ${task.noteId ? 'cursor-pointer' : ''}`}
       onClick={() => task.noteId && note && onClick?.()}
     >
       <button 
@@ -1204,7 +1231,7 @@ function TaskItem({
               {task.title}
             </p>
             {note && (
-              <div className="flex items-center gap-1 mt-1">
+              <div className="flex items-center gap-1 mt-0.5">
                 <ExternalLink size={10} className="text-rose-400" />
                 <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider truncate">Linked Note</span>
               </div>
@@ -3034,7 +3061,7 @@ function AppContent() {
               onDelete={deleteNote}
             />
           ) : viewMode === 'workflow' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
               {statuses.filter(s => s.isVisible).map((status) => (
                 <div key={status.id} className="bg-gray-100/50 rounded-3xl p-4 min-h-[600px] flex flex-col gap-4">
                   <div className="flex items-center justify-between px-2 mb-2">
@@ -3087,7 +3114,7 @@ function AppContent() {
             </div>
           ) : (
             <div 
-              className="grid gap-6 auto-rows-min grid-flow-dense"
+              className="grid gap-4 auto-rows-min grid-flow-dense"
               style={{ 
                 gridTemplateColumns: `repeat(${isMobile() ? 1 : userSettings.gridColumns}, minmax(0, 1fr))` 
               }}
