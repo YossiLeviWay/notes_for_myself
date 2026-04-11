@@ -237,7 +237,7 @@ interface FolderType {
 }
 
 // Note Card Component for reuse
-function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, onToggleCollapse, statuses, viewMode, onClick, userSettings, onContextMenu }: { 
+function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, onToggleCollapse, onPopout, statuses, viewMode, onClick, userSettings, onContextMenu }: { 
   note: Note, 
   isAdmin: boolean, 
   onEdit: () => void, 
@@ -249,6 +249,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
   onPin: () => void | Promise<void>,
   onSizeChange: (size: 'sm' | 'md' | 'lg') => void | Promise<void>,
   onToggleCollapse: () => void | Promise<void>,
+  onPopout: () => void,
   statuses: StatusOption[],
   viewMode: 'compact' | 'full',
   onClick: () => void,
@@ -322,6 +323,13 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         <div className="flex justify-between items-start mb-1 gap-2">
           <h3 className={`font-bold text-gray-900 line-clamp-2 group-hover:text-purple-500 transition-colors flex-1 ${note.size === 'lg' ? 'text-xl' : 'text-base'}`}>{note.title}</h3>
           <div className="flex items-center gap-1 shrink-0">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onPopout(); }}
+              className="p-1.5 rounded-full text-gray-300 hover:bg-gray-100 hover:text-primary transition-colors"
+              title="Pop-out Note"
+            >
+              <ExternalLink size={14} />
+            </button>
             <button 
               onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
               className={`p-1.5 rounded-full transition-colors ${note.isCollapsed ? 'text-purple-500 bg-purple-50' : 'text-gray-300 hover:bg-gray-100'}`}
@@ -495,6 +503,7 @@ interface FloatingWindowProps {
   userSettings: UserSettings;
   onMaximize: () => void;
   openWindow: (id: string) => void;
+  onPopout: () => void;
 }
 
 function FloatingWindow({ 
@@ -518,7 +527,8 @@ function FloatingWindow({
   statuses,
   userSettings,
   onMaximize,
-  openWindow
+  openWindow,
+  onPopout
 }: FloatingWindowProps) {
   const mobile = isMobile();
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
@@ -666,6 +676,9 @@ function FloatingWindow({
           </div>
           {!mobile && (
             <>
+              <button onClick={(e) => { e.stopPropagation(); onPopout(); }} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors" title="Pop-out Window">
+                <ExternalLink size={16} />
+              </button>
               <button onClick={(e) => { e.stopPropagation(); onMaximize(); }} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors" title={win.isMaximized ? "Restore" : "Maximize"}>
                 {win.isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
@@ -1261,7 +1274,10 @@ function CanvasView({
   isAdmin, 
   statuses, 
   userSettings, 
-  openWindow 
+  openWindow,
+  onPopout,
+  onAddNote,
+  onDelete
 }: {
   notes: Note[],
   onUpdateNote: (id: string, data: Partial<Note>) => void,
@@ -1269,12 +1285,41 @@ function CanvasView({
   isAdmin: boolean,
   statuses: StatusOption[],
   userSettings: UserSettings,
-  openWindow: (id: string) => void
+  openWindow: (id: string) => void,
+  onPopout: (id: string) => void,
+  onAddNote: (x?: number, y?: number) => void,
+  onDelete: (id: string) => void
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const gridSize = 20;
 
   const handleDragEnd = (id: string, x: number, y: number) => {
-    onUpdateNote(id, { canvasX: x, canvasY: y });
+    let finalX = x;
+    let finalY = y;
+    if (snapToGrid) {
+      finalX = Math.round(x / gridSize) * gridSize;
+      finalY = Math.round(y / gridSize) * gridSize;
+    }
+    onUpdateNote(id, { canvasX: finalX, canvasY: finalY });
+  };
+
+  const handleNoteClick = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (linkingFrom) {
+      if (linkingFrom !== id) {
+        const fromNote = notes.find(n => n.id === linkingFrom);
+        if (fromNote) {
+          const newLinks = [...(fromNote.links || []), id];
+          onUpdateNote(linkingFrom, { links: newLinks });
+        }
+      }
+      setLinkingFrom(null);
+    } else {
+      setSelectedNoteId(id === selectedNoteId ? null : id);
+    }
   };
 
   // Find all links for drawing lines
@@ -1305,6 +1350,14 @@ function CanvasView({
     <div 
       ref={canvasRef}
       className="relative w-full h-[2000px] bg-gray-50/50 rounded-[3rem] border-2 border-dashed border-gray-200 overflow-hidden cursor-crosshair"
+      style={{ 
+        backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)',
+        backgroundSize: '20px 20px'
+      }}
+      onClick={() => {
+        setSelectedNoteId(null);
+        setLinkingFrom(null);
+      }}
       onContextMenu={(e) => {
         if (isAdmin && e.target === canvasRef.current) {
           e.preventDefault();
@@ -1314,25 +1367,44 @@ function CanvasView({
     >
       <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
         <defs>
-          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
             <polygon points="0 0, 10 3.5, 0 7" fill="#9D85FF" />
           </marker>
         </defs>
         {lines.map((line, i) => {
-          const fromX = (line.from.canvasX || 0) + 150;
-          const fromY = (line.from.canvasY || 0) + 100;
-          const toX = (line.to.canvasX || 0) + 150;
-          const toY = (line.to.canvasY || 0) + 100;
+          const fromWidth = line.from.canvasWidth || 300;
+          const fromHeight = line.from.canvasHeight || 200;
+          const toWidth = line.to.canvasWidth || 300;
+          const toHeight = line.to.canvasHeight || 200;
+
+          const fromX = (line.from.canvasX || 0) + fromWidth / 2;
+          const fromY = (line.from.canvasY || 0) + fromHeight / 2;
+          const toX = (line.to.canvasX || 0) + toWidth / 2;
+          const toY = (line.to.canvasY || 0) + toHeight / 2;
+
+          // Calculate curved path
+          const dx = toX - fromX;
+          const dy = toY - fromY;
+          const midX = fromX + dx / 2;
+          const midY = fromY + dy / 2;
+          
+          // Control points for the curve
+          const cp1x = fromX + dx / 4;
+          const cp1y = fromY;
+          const cp2x = toX - dx / 4;
+          const cp2y = toY;
+
+          const pathData = `M ${fromX} ${fromY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${toX} ${toY}`;
+
           return (
-            <motion.line
+            <motion.path
               key={`${line.from.id}-${line.to.id}-${i}`}
-              x1={fromX}
-              y1={fromY}
-              x2={toX}
-              y2={toY}
+              d={pathData}
+              fill="none"
               stroke="#9D85FF"
               strokeWidth="2"
               strokeDasharray="5,5"
+              markerEnd="url(#arrowhead)"
               initial={{ pathLength: 0, opacity: 0 }}
               animate={{ pathLength: 1, opacity: 0.4 }}
               transition={{ duration: 1 }}
@@ -1358,7 +1430,8 @@ function CanvasView({
             const newY = (note.canvasY || 100) + info.offset.y;
             handleDragEnd(note.id, newX, newY);
           }}
-          className="absolute z-10"
+          onClick={(e) => handleNoteClick(e, note.id)}
+          className={`absolute z-10 p-1 rounded-[1.75rem] transition-all duration-300 ${selectedNoteId === note.id ? 'ring-4 ring-purple-400 ring-offset-4' : ''}`}
         >
           <NoteCard 
             note={note}
@@ -1376,8 +1449,59 @@ function CanvasView({
             onPin={() => {}}
             onSizeChange={() => {}}
             onToggleCollapse={() => {}}
+            onPopout={() => onPopout(note.id)}
             onContextMenu={onContextMenu}
           />
+
+          {/* Contextual Toolbar */}
+          {selectedNoteId === note.id && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="absolute -top-16 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-purple-100 z-50"
+            >
+              <button 
+                onClick={(e) => { e.stopPropagation(); setLinkingFrom(note.id); }}
+                className={`p-2 rounded-xl transition-all ${linkingFrom === note.id ? 'bg-purple-500 text-white' : 'hover:bg-purple-50 text-purple-500'}`}
+                title="Connect to another note"
+              >
+                <LinkIcon size={18} />
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onUpdateNote(note.id, { color: '' }); }}
+                className="w-6 h-6 rounded-full border border-gray-200 bg-white hover:scale-110 transition-transform"
+              />
+              {PASTEL_COLORS.slice(1, 6).map(c => (
+                <button 
+                  key={c.value}
+                  onClick={(e) => { e.stopPropagation(); onUpdateNote(note.id, { color: c.value }); }}
+                  className="w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform"
+                  style={{ backgroundColor: c.value }}
+                />
+              ))}
+              <button 
+                onClick={(e) => { e.stopPropagation(); onUpdateNote(note.id, { links: [] }); }}
+                className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl transition-all"
+                title="Clear all connections"
+              >
+                <LinkIcon size={18} className="rotate-45" />
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
+                className="p-2 hover:bg-red-50 text-red-500 rounded-xl transition-all"
+                title="Delete note"
+              >
+                <Trash2 size={18} />
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); openWindow(note.id); }}
+                className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl transition-all"
+              >
+                <Maximize2 size={18} />
+              </button>
+            </motion.div>
+          )}
+
           {isAdmin && (
             <div 
               className="absolute -right-2 -bottom-2 w-4 h-4 bg-purple-500 rounded-full cursor-nwse-resize z-20 shadow-lg border-2 border-white"
@@ -1400,6 +1524,51 @@ function CanvasView({
           )}
         </motion.div>
       ))}
+
+      {/* Canvas Controls */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/80 backdrop-blur-xl p-3 rounded-[2rem] shadow-2xl border border-white/50 z-50">
+        <button 
+          onClick={() => onAddNote()}
+          className="flex items-center gap-2 bg-purple-500 text-white px-6 py-3 rounded-2xl font-bold shadow-lg hover:shadow-purple-200 hover:-translate-y-1 transition-all active:translate-y-0"
+        >
+          <Plus size={20} />
+          <span>New Note</span>
+        </button>
+        <button 
+          onClick={() => {
+            if (notes.length > 0) {
+              setLinkingFrom(notes[0].id);
+            }
+          }}
+          className="flex items-center gap-2 bg-white text-purple-500 px-6 py-3 rounded-2xl font-bold shadow-sm border border-purple-100 hover:bg-purple-50 transition-all"
+        >
+          <LinkIcon size={20} />
+          <span>New Connection</span>
+        </button>
+        <div className="w-px h-8 bg-gray-200" />
+        <button 
+          onClick={() => setSnapToGrid(!snapToGrid)}
+          className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all ${snapToGrid ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100 text-gray-500'}`}
+        >
+          <Grid size={20} />
+          <span>Snap to Grid</span>
+        </button>
+        <button 
+          className="flex items-center gap-2 px-4 py-3 rounded-2xl font-bold hover:bg-gray-100 text-gray-500 transition-all"
+          onClick={() => {
+            // Auto-arrange logic could go here
+          }}
+        >
+          <LayoutGrid size={20} />
+          <span>Auto-Arrange</span>
+        </button>
+      </div>
+
+      {linkingFrom && (
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-purple-500 text-white px-6 py-3 rounded-2xl font-bold shadow-2xl animate-bounce z-50">
+          Select a note to connect with...
+        </div>
+      )}
     </div>
   );
 }
@@ -2269,6 +2438,20 @@ function AppContent() {
     ],
   };
 
+  const handlePopout = (noteId: string) => {
+    const url = `${window.location.origin}${window.location.pathname}?popout=${noteId}`;
+    const width = 450;
+    const height = 550;
+    const left = (window.screen.width / 2) - (width / 2);
+    const top = (window.screen.height / 2) - (height / 2);
+    
+    window.open(
+      url, 
+      `popout-${noteId}`, 
+      `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`
+    );
+  };
+
   if (!isAuthReady) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white p-8">
       <motion.div 
@@ -2321,6 +2504,16 @@ function AppContent() {
         </motion.div>
       </div>
     );
+  }
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const popoutNoteId = urlParams.get('popout');
+
+  if (popoutNoteId) {
+    const note = notes.find(n => n.id === popoutNoteId);
+    if (note) {
+      return <PopoutView note={note} userSettings={userSettings} statuses={statuses} />;
+    }
   }
 
   const currentFolder = folders.find(f => f.id === currentFolderId);
@@ -2832,6 +3025,13 @@ function AppContent() {
               statuses={statuses}
               userSettings={userSettings}
               openWindow={openWindow}
+              onPopout={handlePopout}
+              onAddNote={() => {
+                setEditNoteData(null);
+                resetNoteForm();
+                setShowAddNoteModal(true);
+              }}
+              onDelete={deleteNote}
             />
           ) : viewMode === 'workflow' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
@@ -2874,6 +3074,7 @@ function AppContent() {
                         onPin={() => handlePinNote(note.id, !note.isPinned)}
                         onSizeChange={(s) => handleSizeNote(note.id, s)}
                         onToggleCollapse={() => handleToggleCollapse(note.id, !note.isCollapsed)}
+                        onPopout={() => handlePopout(note.id)}
                         onContextMenu={(x, y, noteId) => setContextMenu({ x, y, type: 'note', noteId })}
                         statuses={statuses}
                         viewMode={userSettings.cardViewMode}
@@ -2918,6 +3119,7 @@ function AppContent() {
                     onPin={() => handlePinNote(note.id, !note.isPinned)}
                     onSizeChange={(s) => handleSizeNote(note.id, s)}
                     onToggleCollapse={() => handleToggleCollapse(note.id, !note.isCollapsed)}
+                    onPopout={() => handlePopout(note.id)}
                     onContextMenu={(x, y, noteId) => setContextMenu({ x, y, type: 'note', noteId })}
                     statuses={statuses}
                     viewMode={userSettings.cardViewMode}
@@ -3376,6 +3578,7 @@ function AppContent() {
                 onColorChange={(color) => updateNoteColor(note.id, color)}
                 onUpdateNote={handleUpdateNote}
                 onContextMenu={(x, y, noteId) => setContextMenu({ x, y, type: 'note', noteId })}
+                onPopout={() => handlePopout(note.id)}
                 statuses={statuses}
                 userSettings={userSettings}
               />
@@ -3613,6 +3816,59 @@ function AppContent() {
           background: #f9fafb;
         }
       `}</style>
+    </div>
+  );
+}
+
+// Popout View Component for always-on-top windows
+function PopoutView({ note, userSettings, statuses }: { note: Note, userSettings: UserSettings, statuses: StatusOption[] }) {
+  const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
+  
+  useEffect(() => {
+    document.title = `Note: ${note.title}`;
+  }, [note.title]);
+
+  return (
+    <div 
+      className={`min-h-screen p-6 flex flex-col ${userSettings.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}
+      style={{ fontFamily: userSettings.defaultFont }}
+    >
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: currentStatus.color }}>
+            <Type size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-0.5">{currentStatus.label}</span>
+            <h1 className="text-xl font-bold line-clamp-1 tracking-tight">{note.title}</h1>
+          </div>
+        </div>
+        <button 
+          onClick={() => window.close()}
+          className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 transition-colors"
+          title="Close Pop-out"
+        >
+          <X size={20} />
+        </button>
+      </div>
+      
+      <div 
+        className={`flex-1 overflow-y-auto prose prose-lg max-w-none note-content p-6 rounded-3xl ${userSettings.theme === 'dark' ? 'prose-invert bg-gray-800/40' : 'bg-gray-50/40'}`}
+        dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
+        style={{ 
+          fontSize: userSettings.defaultSize || '16px', 
+          textAlign: note.alignment || userSettings.defaultAlignment || 'start'
+        }}
+        dangerouslySetInnerHTML={{ __html: note.content }}
+      />
+      
+      <div className="mt-6 pt-4 border-t border-gray-100/10 text-[10px] font-bold text-gray-400 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+          <span>Notes For Myself - Pop-out Mode</span>
+        </div>
+        <span>Last updated: {note.updatedAt ? format(note.updatedAt.toDate(), 'MMM d, HH:mm') : 'Just now'}</span>
+      </div>
     </div>
   );
 }
