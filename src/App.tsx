@@ -436,10 +436,10 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
               )}
               <button 
                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
+                className={`p-1.5 rounded-full transition-all ${isMobile() ? 'bg-purple-500 text-white shadow-md p-2' : 'hover:bg-gray-100/50 text-gray-500 hover:text-purple-500'}`}
                 title="Edit Note"
               >
-                <Edit2 size={14} />
+                <Edit2 size={isMobile() ? 16 : 14} />
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); onArchive(); }}
@@ -542,8 +542,8 @@ function FloatingWindow({
   userSettings,
   onMaximize
 }: FloatingWindowProps) {
+  const mobile = isMobile();
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isQuickEditing, setIsQuickEditing] = useState(false);
   const [quickEditContent, setQuickEditContent] = useState(note.content);
@@ -559,11 +559,11 @@ function FloatingWindow({
 
   if (win.isMinimized) return null;
 
-  const windowStyle = win.isMaximized || isMobile ? {
-    width: '100%',
-    height: '100%',
-    left: 0,
+  const windowStyle = win.isMaximized || mobile ? {
     top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderRadius: 0,
     zIndex: win.zIndex,
     position: 'fixed' as const
@@ -579,29 +579,26 @@ function FloatingWindow({
 
   return (
       <motion.div
-        initial={isMobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9, x: win.x, y: win.y }}
+        initial={mobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9, x: win.x, y: win.y }}
         animate={{ 
           opacity: 1, 
           scale: 1, 
           borderRadius: windowStyle.borderRadius
         }}
-        exit={isMobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9 }}
+        exit={mobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9 }}
         style={{ 
           zIndex: win.zIndex,
           position: 'fixed',
-          left: windowStyle.left,
-          top: windowStyle.top,
-          width: windowStyle.width,
-          height: windowStyle.height
+          ...windowStyle
         }}
         className="bg-white shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
         onClick={onFocus}
       >
       {/* Header / Drag Handle */}
       <div 
-        className={`p-4 bg-gray-50 border-b flex items-center justify-between select-none ${(isMobile || win.isMaximized) ? '' : 'cursor-move'}`}
+        className={`p-4 bg-gray-50 border-b flex items-center justify-between select-none ${(mobile || win.isMaximized) ? '' : 'cursor-move'}`}
         onMouseDown={(e) => {
-          if (isMobile || win.isMaximized) return;
+          if (mobile || win.isMaximized) return;
           const startX = e.clientX - win.x;
           const startY = e.clientY - win.y;
           const onMouseMove = (moveEvent: MouseEvent) => {
@@ -620,7 +617,16 @@ function FloatingWindow({
           <h3 className="font-bold text-sm text-gray-700 line-clamp-1 md:line-clamp-2">{note.title}</h3>
         </div>
         <div className="flex items-center gap-1">
-          <div className="flex items-center gap-1 mr-2 bg-gray-200/50 rounded-lg p-0.5">
+          {mobile && isAdmin && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onEdit(); }} 
+              className="p-2 bg-purple-500 text-white rounded-xl shadow-md active:scale-95 transition-all mr-1"
+              title="Edit Note"
+            >
+              <Edit2 size={16} />
+            </button>
+          )}
+          <div className="flex items-center gap-1 mr-1 bg-gray-200/50 rounded-lg p-0.5">
             <button 
               onClick={(e) => { e.stopPropagation(); setZoomLevel(prev => Math.max(50, prev - 10)); }}
               className="p-1 hover:bg-white rounded-md text-gray-500 transition-all"
@@ -628,7 +634,7 @@ function FloatingWindow({
             >
               <Minus size={12} />
             </button>
-            <span className="text-[10px] font-bold text-gray-500 w-8 text-center">{zoomLevel}%</span>
+            {!mobile && <span className="text-[10px] font-bold text-gray-500 w-8 text-center">{zoomLevel}%</span>}
             <button 
               onClick={(e) => { e.stopPropagation(); setZoomLevel(prev => Math.min(200, prev + 10)); }}
               className="p-1 hover:bg-white rounded-md text-gray-500 transition-all"
@@ -637,7 +643,7 @@ function FloatingWindow({
               <Plus size={12} />
             </button>
           </div>
-          {!isMobile && (
+          {!mobile && (
             <>
               <button onClick={(e) => { e.stopPropagation(); onMaximize(); }} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors" title={win.isMaximized ? "Restore" : "Maximize"}>
                 {win.isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -721,7 +727,7 @@ function FloatingWindow({
       </div>
 
       {/* Resize Handles */}
-      {!isMobile && (
+      {!mobile && (
         <div 
           className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10"
           onMouseDown={(e) => {
@@ -1584,7 +1590,7 @@ function AppContent() {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setIsAuthReady(true);
-      if (u && (u.email === 'admin@notes.com' || u.uid === 'qelYRH3ns4daioIRieNXWU2hvpA2')) {
+      if (u && (u.email === 'admin@notes.com' || u.email === 'yossi.levi011@gmail.com' || u.uid === 'qelYRH3ns4daioIRieNXWU2hvpA2')) {
         setIsAdmin(true);
       } else {
         setIsAdmin(false);
@@ -1592,6 +1598,19 @@ function AppContent() {
     });
     return () => unsubscribe();
   }, []);
+
+  const updateUserSettings = async (newSettings: Partial<UserSettings>) => {
+    const updated = { ...userSettings, ...newSettings };
+    setUserSettings(updated);
+    if (isAdmin) {
+      const sDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
+      try {
+        await setDoc(sDoc, { userSettings: updated }, { merge: true });
+      } catch (err) {
+        console.error("Error updating settings:", err);
+      }
+    }
+  };
 
   // Fetch Folders
   useEffect(() => {
@@ -2185,14 +2204,14 @@ function AppContent() {
               </button>
               <div className="w-px h-4 bg-gray-200 mx-1" />
               <button 
-                onClick={() => setUserSettings(prev => ({ ...prev, gridColumns: 1 }))}
+                onClick={() => updateUserSettings({ gridColumns: 1 })}
                 className={`p-1.5 rounded-full transition-all ${userSettings.gridColumns === 1 ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
                 title="List View"
               >
                 <List size={16} />
               </button>
               <button 
-                onClick={() => setUserSettings(prev => ({ ...prev, gridColumns: 3 }))}
+                onClick={() => updateUserSettings({ gridColumns: 3 })}
                 className={`p-1.5 rounded-full transition-all ${userSettings.gridColumns > 1 ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
                 title="Grid View"
               >
@@ -2224,7 +2243,7 @@ function AppContent() {
                     {[1, 2, 3, 4, 5, 6].map(cols => (
                       <button 
                         key={cols}
-                        onClick={() => setUserSettings(prev => ({ ...prev, gridColumns: cols }))}
+                        onClick={() => updateUserSettings({ gridColumns: cols })}
                         className={`flex-1 h-9 flex items-center justify-center rounded-xl text-xs font-bold transition-all ${userSettings.gridColumns === cols ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-gray-400 hover:bg-purple-50 hover:text-purple-500'}`}
                       >
                         {cols}
@@ -2235,14 +2254,14 @@ function AppContent() {
               </div>
               <div className="w-px h-4 bg-gray-200 mx-1" />
               <button 
-                onClick={() => setUserSettings(prev => ({ ...prev, cardViewMode: 'compact' }))}
+                onClick={() => updateUserSettings({ cardViewMode: 'compact' })}
                 className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'compact' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
                 title="Compact View"
               >
                 <LayoutGrid size={16} />
               </button>
               <button 
-                onClick={() => setUserSettings(prev => ({ ...prev, cardViewMode: 'full' }))}
+                onClick={() => updateUserSettings({ cardViewMode: 'full' })}
                 className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'full' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
                 title="Full View"
               >
@@ -2512,7 +2531,7 @@ function AppContent() {
             <div 
               className="grid gap-6 auto-rows-min grid-flow-dense"
               style={{ 
-                gridTemplateColumns: `repeat(${isMobile ? 1 : userSettings.gridColumns}, minmax(0, 1fr))` 
+                gridTemplateColumns: `repeat(${isMobile() ? 1 : userSettings.gridColumns}, minmax(0, 1fr))` 
               }}
             >
               <AnimatePresence mode="popLayout">
