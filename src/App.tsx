@@ -10,7 +10,8 @@ import {
   serverTimestamp,
   query,
   where,
-  orderBy
+  orderBy,
+  writeBatch
 } from 'firebase/firestore';
 import { 
   signInWithEmailAndPassword, 
@@ -69,7 +70,8 @@ import {
   List as ListIcon,
   ListOrdered,
   Palette,
-  ChevronLeft
+  ChevronLeft,
+  LayoutGrid
 } from 'lucide-react';
 import { db, auth } from './firebase';
 import { format, isAfter, isBefore, startOfToday, endOfToday, addDays } from 'date-fns';
@@ -410,7 +412,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           </div>
           
           {isAdmin && (
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+            <div className={`flex items-center gap-1 transition-all ${isMobile() ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0'}`}>
               <button 
                 onClick={(e) => { e.stopPropagation(); setShowSizePicker(true); }}
                 className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
@@ -418,33 +420,38 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
               >
                 <Maximize2 size={14} />
               </button>
-              <div className="flex bg-gray-100/50 rounded-full p-0.5 mr-1 overflow-x-auto max-w-[120px] no-scrollbar">
-                {statuses.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={(e) => { e.stopPropagation(); onStatusChange(s.id); }}
-                    className={`p-1.5 rounded-full transition-all flex-shrink-0 ${note.status === s.id ? 'bg-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                    title={`Mark as ${s.label}`}
-                  >
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                  </button>
-                ))}
-              </div>
+              {!isMobile() && (
+                <div className="flex bg-gray-100/50 rounded-full p-0.5 mr-1 overflow-x-auto max-w-[120px] no-scrollbar">
+                  {statuses.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={(e) => { e.stopPropagation(); onStatusChange(s.id); }}
+                      className={`p-1.5 rounded-full transition-all flex-shrink-0 ${note.status === s.id ? 'bg-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                      title={`Mark as ${s.label}`}
+                    >
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                    </button>
+                  ))}
+                </div>
+              )}
               <button 
                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
                 className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
+                title="Edit Note"
               >
                 <Edit2 size={14} />
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); onArchive(); }}
                 className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
+                title={note.isArchived ? "Unarchive" : "Archive"}
               >
                 <Archive size={14} />
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
+                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
+                title="Delete Note"
               >
                 <Trash2 size={14} />
               </button>
@@ -1811,6 +1818,16 @@ function AppContent() {
     handleUpdateNote(id, { isCollapsed });
   };
 
+  const handleToggleAllCollapse = async (isCollapsed: boolean) => {
+    if (!isAdmin) return;
+    const batch = writeBatch(db);
+    filteredNotes.forEach(note => {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'notes', note.id);
+      batch.update(docRef, { isCollapsed });
+    });
+    await batch.commit();
+  };
+
 
   const resetNoteForm = () => {
     setNoteTitle('');
@@ -2152,6 +2169,36 @@ function AppContent() {
               </div>
             )}
             <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-full border border-gray-100">
+              <button 
+                onClick={() => handleToggleAllCollapse(true)}
+                className="p-1.5 hover:bg-purple-50 rounded-full text-gray-400 hover:text-purple-500 transition-colors"
+                title="Collapse All"
+              >
+                <Minimize2 size={16} />
+              </button>
+              <button 
+                onClick={() => handleToggleAllCollapse(false)}
+                className="p-1.5 hover:bg-purple-50 rounded-full text-gray-400 hover:text-purple-500 transition-colors"
+                title="Expand All"
+              >
+                <Maximize2 size={16} />
+              </button>
+              <div className="w-px h-4 bg-gray-200 mx-1" />
+              <button 
+                onClick={() => setUserSettings(prev => ({ ...prev, gridColumns: 1 }))}
+                className={`p-1.5 rounded-full transition-all ${userSettings.gridColumns === 1 ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
+                title="List View"
+              >
+                <List size={16} />
+              </button>
+              <button 
+                onClick={() => setUserSettings(prev => ({ ...prev, gridColumns: 3 }))}
+                className={`p-1.5 rounded-full transition-all ${userSettings.gridColumns > 1 ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
+                title="Grid View"
+              >
+                <Grid size={16} />
+              </button>
+              <div className="w-px h-4 bg-gray-200 mx-1" />
               <div className="relative group/layout">
                 <button 
                   className="p-1.5 rounded-full text-gray-400 hover:text-purple-500 transition-colors flex items-center gap-1.5 bg-white/50 border border-transparent hover:border-purple-100"
@@ -2192,14 +2239,14 @@ function AppContent() {
                 className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'compact' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
                 title="Compact View"
               >
-                <Grid size={16} />
+                <LayoutGrid size={16} />
               </button>
               <button 
                 onClick={() => setUserSettings(prev => ({ ...prev, cardViewMode: 'full' }))}
                 className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'full' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
                 title="Full View"
               >
-                <List size={16} />
+                <Type size={16} />
               </button>
             </div>
 
@@ -3018,6 +3065,25 @@ function AppContent() {
         .prose * {
           font-family: inherit;
         }
+        .prose p {
+          margin-top: 0.25rem !important;
+          margin-bottom: 0.25rem !important;
+          line-height: 1.4 !important;
+        }
+        .prose ul, .prose ol {
+          margin-top: 0.25rem !important;
+          margin-bottom: 0.25rem !important;
+          padding-left: 1.25rem !important;
+        }
+        .prose li {
+          margin-top: 0.125rem !important;
+          margin-bottom: 0.125rem !important;
+        }
+        .prose h1, .prose h2, .prose h3, .prose h4 {
+          margin-top: 0.5rem !important;
+          margin-bottom: 0.25rem !important;
+          line-height: 1.2 !important;
+        }
         .note-content {
           word-break: normal;
           overflow-wrap: break-word;
@@ -3071,6 +3137,7 @@ function SettingsModal({
 }) {
   const [localStatuses, setLocalStatuses] = useState<StatusOption[]>(statuses);
   const [localSettings, setLocalSettings] = useState<UserSettings>(userSettings);
+  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'statuses'>('general');
 
   useEffect(() => {
     setLocalStatuses(statuses);
@@ -3079,7 +3146,7 @@ function SettingsModal({
 
   const handleAddStatus = () => {
     const newId = `status-${Date.now()}`;
-    setLocalStatuses([...localStatuses, { id: newId, label: 'New Status', color: '#94A3B8' }]);
+    setLocalStatuses([...localStatuses, { id: newId, label: 'New Status', color: '#94A3B8', isVisible: true }]);
   };
 
   const handleRemoveStatus = (id: string) => {
@@ -3106,207 +3173,244 @@ function SettingsModal({
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            className="relative bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
           >
             <div className="p-6 border-b flex items-center justify-between bg-gray-50">
-              <h2 className="text-2xl font-bold">Settings & Preferences</h2>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 text-purple-600 rounded-xl">
+                  <Settings size={24} />
+                </div>
+                <h2 className="text-2xl font-bold">Settings</h2>
+              </div>
               <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
                 <X size={24} />
               </button>
             </div>
-            
-            <div className="flex-1 overflow-y-auto p-8 space-y-8">
-              {/* Default Preferences */}
-              <section className="space-y-4">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Default Preferences</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Default Font</label>
-                    <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.defaultFont}
-                      onChange={(e) => setLocalSettings({ ...localSettings, defaultFont: e.target.value })}
-                    >
-                      <option value="Inter">Inter (Sans)</option>
-                      <option value="JetBrains Mono">JetBrains Mono (Mono)</option>
-                      <option value="Playfair Display">Playfair Display (Serif)</option>
-                      <option value="Outfit">Outfit</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Default Size</label>
-                    <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.defaultSize}
-                      onChange={(e) => setLocalSettings({ ...localSettings, defaultSize: e.target.value })}
-                    >
-                      <option value="14px">Small (14px)</option>
-                      <option value="16px">Normal (16px)</option>
-                      <option value="18px">Large (18px)</option>
-                      <option value="20px">Huge (20px)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Default Alignment</label>
-                    <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.defaultAlignment}
-                      onChange={(e) => setLocalSettings({ ...localSettings, defaultAlignment: e.target.value as any })}
-                    >
-                      <option value="left">Left (LTR)</option>
-                      <option value="right">Right (RTL)</option>
-                      <option value="center">Center</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Default Folder</label>
-                    <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.defaultFolderId || ''}
-                      onChange={(e) => setLocalSettings({ ...localSettings, defaultFolderId: e.target.value || null })}
-                    >
-                      <option value="">No Default Folder</option>
-                      {folders.map(f => (
-                        <option key={f.id} value={f.id}>{f.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Default Task List</label>
-                    <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.defaultTaskListId || ''}
-                      onChange={(e) => setLocalSettings({ ...localSettings, defaultTaskListId: e.target.value || null })}
-                    >
-                      <option value="">No Default List</option>
-                      {taskLists.map(l => (
-                        <option key={l.id} value={l.id}>{l.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Startup Folder</label>
-                    <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.startupFolderId || ''}
-                      onChange={(e) => setLocalSettings({ ...localSettings, startupFolderId: e.target.value || null })}
-                    >
-                      <option value="">All Notes (Default)</option>
-                      {folders.map(f => (
-                        <option key={f.id} value={f.id}>{f.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Startup Task List</label>
-                    <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.startupTaskListId || ''}
-                      onChange={(e) => setLocalSettings({ ...localSettings, startupTaskListId: e.target.value || null })}
-                    >
-                      <option value="">No Default List</option>
-                      {taskLists.map(l => (
-                        <option key={l.id} value={l.id}>{l.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Grid Columns (Main Board)</label>
-                    <input 
-                      type="number" 
-                      min="1" 
-                      max="6"
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.gridColumns}
-                      onChange={(e) => setLocalSettings({ ...localSettings, gridColumns: parseInt(e.target.value) || 3 })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Max Notes per Column (Workflow)</label>
-                    <input 
-                      type="number" 
-                      min="1" 
-                      max="100"
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
-                      value={localSettings.notesPerColumn}
-                      onChange={(e) => setLocalSettings({ ...localSettings, notesPerColumn: parseInt(e.target.value) || 10 })}
-                    />
-                  </div>
-                  <div className="md:col-span-3">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-xl ${localSettings.enableNotifications ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-500'}`}>
-                          <Bell size={20} />
+
+            <div className="flex flex-1 overflow-hidden">
+              {/* Sidebar Tabs */}
+              <div className="w-48 border-r bg-gray-50/50 p-4 space-y-1">
+                <button 
+                  onClick={() => setActiveTab('general')}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'general' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                >
+                  <Settings size={18} /> General
+                </button>
+                <button 
+                  onClick={() => setActiveTab('appearance')}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'appearance' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                >
+                  <Palette size={18} /> Appearance
+                </button>
+                <button 
+                  onClick={() => setActiveTab('statuses')}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'statuses' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                >
+                  <Layout size={18} /> Statuses
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-8">
+                {activeTab === 'general' && (
+                  <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <section className="space-y-4">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Default Folders & Lists</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-2">Default Folder</label>
+                          <select 
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                            value={localSettings.defaultFolderId || ''}
+                            onChange={(e) => setLocalSettings({ ...localSettings, defaultFolderId: e.target.value || null })}
+                          >
+                            <option value="">No Default Folder</option>
+                            {folders.map(f => (
+                              <option key={f.id} value={f.id}>{f.name}</option>
+                            ))}
+                          </select>
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-gray-700">Desktop Notifications</p>
-                          <p className="text-xs text-gray-500">Get notified about due tasks and notes</p>
+                          <label className="block text-xs font-bold text-gray-500 mb-2">Default Task List</label>
+                          <select 
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                            value={localSettings.defaultTaskListId || ''}
+                            onChange={(e) => setLocalSettings({ ...localSettings, defaultTaskListId: e.target.value || null })}
+                          >
+                            <option value="">No Default List</option>
+                            {taskLists.map(l => (
+                              <option key={l.id} value={l.id}>{l.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-2">Startup Folder</label>
+                          <select 
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                            value={localSettings.startupFolderId || ''}
+                            onChange={(e) => setLocalSettings({ ...localSettings, startupFolderId: e.target.value || null })}
+                          >
+                            <option value="">All Notes (Default)</option>
+                            {folders.map(f => (
+                              <option key={f.id} value={f.id}>{f.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-2">Startup Task List</label>
+                          <select 
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                            value={localSettings.startupTaskListId || ''}
+                            onChange={(e) => setLocalSettings({ ...localSettings, startupTaskListId: e.target.value || null })}
+                          >
+                            <option value="">No Default List</option>
+                            {taskLists.map(l => (
+                              <option key={l.id} value={l.id}>{l.name}</option>
+                            ))}
+                          </select>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => {
-                          if (!localSettings.enableNotifications) {
-                            requestNotificationPermission();
-                          } else {
-                            setLocalSettings({ ...localSettings, enableNotifications: false });
-                          }
-                        }}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${localSettings.enableNotifications ? 'bg-emerald-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        {localSettings.enableNotifications ? 'Enabled' : 'Enable'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </section>
+                    </section>
 
-              {/* Status Customization */}
-              <section className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Status Titles & Colors</h3>
-                  <button 
-                    onClick={handleAddStatus}
-                    className="flex items-center gap-1 text-xs font-bold text-purple-500 hover:text-purple-600 transition-colors"
-                  >
-                    <Plus size={14} /> Add Status
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {localStatuses.map((status) => (
-                    <div key={status.id} className="flex flex-col md:flex-row md:items-center gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                      <div className="flex items-center gap-3 flex-1">
-                        <input 
-                          type="color" 
-                          value={status.color}
-                          onChange={(e) => handleStatusChange(status.id, 'color', e.target.value)}
-                          className="w-10 h-10 rounded-lg border-0 p-0 cursor-pointer bg-transparent shrink-0"
-                        />
-                        <input 
-                          type="text" 
-                          value={status.label}
-                          onChange={(e) => handleStatusChange(status.id, 'label', e.target.value)}
-                          className="flex-1 bg-white border border-gray-200 rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
+                    <section className="space-y-4">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Notifications</h3>
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl ${localSettings.enableNotifications ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-200 text-gray-500'}`}>
+                            <Bell size={20} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-700">Desktop Notifications</p>
+                            <p className="text-xs text-gray-500">Get notified about due tasks and notes</p>
+                          </div>
+                        </div>
                         <button 
-                          onClick={() => handleStatusChange(status.id, 'isVisible', !status.isVisible)}
-                          className={`flex-1 md:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all ${status.isVisible ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                          onClick={() => {
+                            if (!localSettings.enableNotifications) {
+                              requestNotificationPermission();
+                            } else {
+                              setLocalSettings({ ...localSettings, enableNotifications: false });
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${localSettings.enableNotifications ? 'bg-emerald-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
                         >
-                          {status.isVisible ? 'Visible' : 'Hidden'}
-                        </button>
-                        <button 
-                          onClick={() => handleRemoveStatus(status.id)}
-                          className="p-2 text-gray-400 hover:text-purple-500 transition-colors shrink-0"
-                          disabled={localStatuses.length <= 1}
-                        >
-                          <Trash2 size={18} />
+                          {localSettings.enableNotifications ? 'Enabled' : 'Enable'}
                         </button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
+                    </section>
+                  </div>
+                )}
+
+                {activeTab === 'appearance' && (
+                  <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <section className="space-y-4">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Typography & Layout</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-2">Default Font</label>
+                          <select 
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                            value={localSettings.defaultFont}
+                            onChange={(e) => setLocalSettings({ ...localSettings, defaultFont: e.target.value })}
+                          >
+                            <option value="Inter">Inter (Sans)</option>
+                            <option value="JetBrains Mono">JetBrains Mono (Mono)</option>
+                            <option value="Playfair Display">Playfair Display (Serif)</option>
+                            <option value="Outfit">Outfit</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-2">Default Size</label>
+                          <select 
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                            value={localSettings.defaultSize}
+                            onChange={(e) => setLocalSettings({ ...localSettings, defaultSize: e.target.value })}
+                          >
+                            <option value="14px">Small (14px)</option>
+                            <option value="16px">Normal (16px)</option>
+                            <option value="18px">Large (18px)</option>
+                            <option value="20px">Huge (20px)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-2">Default Alignment</label>
+                          <select 
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                            value={localSettings.defaultAlignment}
+                            onChange={(e) => setLocalSettings({ ...localSettings, defaultAlignment: e.target.value as any })}
+                          >
+                            <option value="left">Left (LTR)</option>
+                            <option value="right">Right (RTL)</option>
+                            <option value="center">Center</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-2">Max Notes per Column (Workflow)</label>
+                          <input 
+                            type="number" 
+                            min="1" 
+                            max="100"
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all text-sm"
+                            value={localSettings.notesPerColumn}
+                            onChange={(e) => setLocalSettings({ ...localSettings, notesPerColumn: parseInt(e.target.value) || 10 })}
+                          />
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                )}
+
+                {activeTab === 'statuses' && (
+                  <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <section className="space-y-4">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Status Titles & Colors</h3>
+                        <button 
+                          onClick={handleAddStatus}
+                          className="flex items-center gap-1 text-xs font-bold text-purple-500 hover:text-purple-600 transition-colors"
+                        >
+                          <Plus size={14} /> Add Status
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {localStatuses.map((status) => (
+                          <div key={status.id} className="flex flex-col md:flex-row md:items-center gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                            <div className="flex items-center gap-3 flex-1">
+                              <input 
+                                type="color" 
+                                value={status.color}
+                                onChange={(e) => handleStatusChange(status.id, 'color', e.target.value)}
+                                className="w-10 h-10 rounded-lg border-0 p-0 cursor-pointer bg-transparent shrink-0"
+                              />
+                              <input 
+                                type="text"
+                                value={status.label}
+                                onChange={(e) => handleStatusChange(status.id, 'label', e.target.value)}
+                                className="flex-1 bg-white border border-gray-200 rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                                placeholder="Status Name"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => handleStatusChange(status.id, 'isVisible', !status.isVisible)}
+                                className={`flex-1 md:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all ${status.isVisible ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                              >
+                                {status.isVisible ? 'Visible' : 'Hidden'}
+                              </button>
+                              <button 
+                                onClick={() => handleRemoveStatus(status.id)}
+                                className="p-2 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                                title="Delete Status"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
@@ -3318,7 +3422,7 @@ function SettingsModal({
               </button>
               <button 
                 onClick={() => onSave(localStatuses, localSettings)}
-                className="px-8 py-3 bg-rose-500 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                className="px-8 py-3 bg-purple-500 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
               >
                 Save Changes
               </button>
