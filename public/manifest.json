@@ -1,0 +1,24 @@
+{
+  "short_name": "Notes",
+  "name": "Notes for Myself",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#F9F7FF",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#9D85FF",
+  "description": "A powerful, spatial note-taking application with canvas and floating windows."
+}

@@ -11,7 +11,9 @@ import {
   query,
   where,
   orderBy,
-  writeBatch
+  writeBatch,
+  limit,
+  getDocs
 } from 'firebase/firestore';
 import { 
   signInWithEmailAndPassword, 
@@ -71,7 +73,10 @@ import {
   ListOrdered,
   Palette,
   ChevronLeft,
-  LayoutGrid
+  LayoutGrid,
+  Link as LinkIcon,
+  Share2,
+  History
 } from 'lucide-react';
 import { db, auth } from './firebase';
 import { format, isAfter, isBefore, startOfToday, endOfToday, addDays } from 'date-fns';
@@ -128,6 +133,27 @@ interface Note {
   uid: string;
   alignment?: 'left' | 'center' | 'right' | 'justify';
   isCollapsed?: boolean;
+  canvasX?: number;
+  canvasY?: number;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  links?: string[];
+}
+
+interface NoteVersion {
+  id: string;
+  noteId: string;
+  title: string;
+  content: string;
+  createdAt: any;
+  uid: string;
+}
+
+interface Connection {
+  id: string;
+  fromId: string;
+  toId: string;
+  uid: string;
 }
 
 interface Task {
@@ -183,6 +209,9 @@ interface UserSettings {
   isSidebarCollapsed: boolean;
   gridColumns: number;
   notesPerColumn: number;
+  sortBy: 'date' | 'status';
+  theme: 'light' | 'dark' | 'glass' | 'minimal';
+  boardTheme: string;
 }
 
 interface ActiveWindow {
@@ -204,10 +233,11 @@ interface FolderType {
   parentId: string | null;
   createdAt: any;
   background?: string;
+  wallpaper?: string;
 }
 
 // Note Card Component for reuse
-function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, onToggleCollapse, statuses, viewMode, onClick, userSettings }: { 
+function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, onToggleCollapse, statuses, viewMode, onClick, userSettings, onContextMenu }: { 
   note: Note, 
   isAdmin: boolean, 
   onEdit: () => void, 
@@ -223,11 +253,10 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
   viewMode: 'compact' | 'full',
   onClick: () => void,
   userSettings: UserSettings,
+  onContextMenu: (x: number, y: number, noteId: string) => void,
   key?: string
 }) {
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showSizePicker, setShowSizePicker] = useState(false);
 
   const sizeClasses = {
     sm: 'col-span-1 row-span-1 min-h-[60px]',
@@ -244,10 +273,10 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
       onContextMenu={(e) => {
         if (isAdmin) {
           e.preventDefault();
-          setShowColorPicker(true);
+          onContextMenu(e.clientX, e.clientY, note.id);
         }
       }}
-      className={`group rounded-2xl overflow-hidden shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500 border border-gray-100 flex flex-col backdrop-blur-sm relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-2 ring-purple-400 ring-offset-2' : ''}`}
+      className={`group rounded-2xl overflow-hidden ambient-shadow hover:shadow-[0_25px_60px_-12px_rgba(0,0,0,0.2)] transition-all duration-500 border border-gray-100 flex flex-col backdrop-blur-sm relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-2 ring-purple-400 ring-offset-2' : ''}`}
       style={{ backgroundColor: note.color || '#FFFFFF' }}
       onClick={onClick}
       draggable
@@ -256,66 +285,6 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
         e.dataTransfer.effectAllowed = 'link';
       }}
     >
-      {showColorPicker && (
-        <div 
-          className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm p-4 flex flex-col items-center justify-center"
-          onClick={(e) => { e.stopPropagation(); setShowColorPicker(false); }}
-        >
-          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Select Note Color</h4>
-          <div className="grid grid-cols-3 gap-3">
-            {PASTEL_COLORS.map(c => (
-              <button
-                key={c.value}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onColorChange(c.value);
-                  setShowColorPicker(false);
-                }}
-                className="w-10 h-10 rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform"
-                style={{ backgroundColor: c.value || '#FFFFFF' }}
-                title={c.name}
-              />
-            ))}
-          </div>
-          <button 
-            onClick={(e) => { e.stopPropagation(); setShowColorPicker(false); }}
-            className="mt-6 text-xs font-bold text-gray-400 hover:text-gray-600"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {showSizePicker && (
-        <div 
-          className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm p-4 flex flex-col items-center justify-center"
-          onClick={(e) => { e.stopPropagation(); setShowSizePicker(false); }}
-        >
-          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Select Card Size</h4>
-          <div className="flex gap-4">
-            {(['sm', 'md', 'lg'] as const).map(s => (
-              <button
-                key={s}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSizeChange(s);
-                  setShowSizePicker(false);
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${note.size === s ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-              >
-                {s.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <button 
-            onClick={(e) => { e.stopPropagation(); setShowSizePicker(false); }}
-            className="mt-6 text-xs font-bold text-gray-400 hover:text-gray-600"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
       {note.imageUrl && (
         <div className={`${note.size === 'lg' ? 'h-64' : 'h-40'} overflow-hidden relative`}>
           <img 
@@ -414,7 +383,10 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           {isAdmin && (
             <div className={`flex items-center gap-1 transition-all ${isMobile() ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0'}`}>
               <button 
-                onClick={(e) => { e.stopPropagation(); setShowSizePicker(true); }}
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  onContextMenu(e.clientX, e.clientY, note.id);
+                }}
                 className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
                 title="Change Card Size"
               >
@@ -504,6 +476,7 @@ interface FloatingWindowProps {
   key?: string | number;
   window: ActiveWindow;
   note: Note;
+  notes: Note[];
   onClose: () => void;
   onMinimize: () => void;
   onFocus: () => void;
@@ -517,14 +490,17 @@ interface FloatingWindowProps {
   onStatusChange: (status: string) => void;
   onColorChange: (color: string) => void;
   onUpdateNote: (id: string, data: Partial<Note>) => void;
+  onContextMenu: (x: number, y: number, noteId: string) => void;
   statuses: StatusOption[];
   userSettings: UserSettings;
   onMaximize: () => void;
+  openWindow: (id: string) => void;
 }
 
 function FloatingWindow({ 
   window: win, 
   note, 
+  notes,
   onClose, 
   onMinimize, 
   onFocus, 
@@ -538,15 +514,43 @@ function FloatingWindow({
   onStatusChange,
   onColorChange,
   onUpdateNote,
+  onContextMenu,
   statuses,
   userSettings,
-  onMaximize
+  onMaximize,
+  openWindow
 }: FloatingWindowProps) {
   const mobile = isMobile();
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isQuickEditing, setIsQuickEditing] = useState(false);
   const [quickEditContent, setQuickEditContent] = useState(note.content);
+  const [showHistory, setShowHistory] = useState(false);
+  const [versions, setVersions] = useState<NoteVersion[]>([]);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+
+  const fetchVersions = async () => {
+    setIsLoadingVersions(true);
+    try {
+      const vPath = `artifacts/${appId}/public/data/notes/${note.id}/versions`;
+      const q = query(collection(db, vPath), orderBy('createdAt', 'desc'), limit(10));
+      const snapshot = await getDocs(q);
+      setVersions(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as NoteVersion)));
+    } catch (err) {
+      console.error("Error fetching versions:", err);
+    } finally {
+      setIsLoadingVersions(false);
+    }
+  };
+
+  const handleRestoreVersion = (v: NoteVersion) => {
+    onUpdateNote(note.id, { title: v.title, content: v.content });
+    setShowHistory(false);
+  };
+
+  const backlinks = useMemo(() => {
+    return notes.filter(n => n.content.includes(`[[${note.title}]]`) && n.id !== note.id);
+  }, [note.title, notes]);
 
   useEffect(() => {
     setQuickEditContent(note.content);
@@ -579,24 +583,34 @@ function FloatingWindow({
 
   return (
       <motion.div
+        onContextMenu={(e) => {
+          if (isAdmin) {
+            e.preventDefault();
+            onContextMenu(e.clientX, e.clientY, note.id);
+          }
+        }}
         initial={mobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9, x: win.x, y: win.y }}
         animate={{ 
           opacity: 1, 
           scale: 1, 
+          x: win.isMaximized || mobile ? 0 : win.x,
+          y: win.isMaximized || mobile ? 0 : win.y,
+          width: win.isMaximized || mobile ? '100%' : win.width,
+          height: win.isMaximized || mobile ? '100%' : win.height,
           borderRadius: windowStyle.borderRadius
         }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         exit={mobile ? { opacity: 0, y: 100 } : { opacity: 0, scale: 0.9 }}
         style={{ 
           zIndex: win.zIndex,
-          position: 'fixed',
-          ...windowStyle
+          position: 'fixed'
         }}
-        className="bg-white shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
+        className={`${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} ambient-shadow flex flex-col overflow-hidden`}
         onClick={onFocus}
       >
       {/* Header / Drag Handle */}
       <div 
-        className={`p-4 bg-gray-50 border-b flex items-center justify-between select-none ${(mobile || win.isMaximized) ? '' : 'cursor-move'}`}
+        className={`p-4 border-b flex items-center justify-between select-none ${userSettings.theme === 'dark' ? 'bg-gray-800/40' : 'bg-gray-50/40'} ${(mobile || win.isMaximized) ? '' : 'cursor-move'}`}
         onMouseDown={(e) => {
           if (mobile || win.isMaximized) return;
           const startX = e.clientX - win.x;
@@ -627,6 +641,13 @@ function FloatingWindow({
             </button>
           )}
           <div className="flex items-center gap-1 mr-1 bg-gray-200/50 rounded-lg p-0.5">
+            <button 
+              onClick={(e) => { e.stopPropagation(); if (!showHistory) { fetchVersions(); } setShowHistory(!showHistory); }}
+              className={`p-1 rounded-md transition-all ${showHistory ? 'bg-purple-500 text-white' : 'hover:bg-white text-gray-500'}`}
+              title="Version History"
+            >
+              <History size={12} />
+            </button>
             <button 
               onClick={(e) => { e.stopPropagation(); setZoomLevel(prev => Math.max(50, prev - 10)); }}
               className="p-1 hover:bg-white rounded-md text-gray-500 transition-all"
@@ -660,47 +681,118 @@ function FloatingWindow({
       </div>
 
       {/* Content */}
-      <div 
-        className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 max-w-none w-full note-content ${!isQuickEditing ? 'prose prose-lg' : ''}`} 
-        dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
-        style={{ 
-          fontFamily: userSettings.defaultFont, 
-          fontSize: `calc(${userSettings.defaultSize || '16px'} * ${zoomLevel / 100})`, 
-          textAlign: note.alignment || userSettings.defaultAlignment || 'start'
-        }}
-      >
-        {isQuickEditing ? (
-          <div className="h-full flex flex-col gap-4 min-h-[300px]">
-            <ReactQuill
-              theme="snow"
-              value={quickEditContent}
-              onChange={setQuickEditContent}
-              modules={{ toolbar: false }}
-              className="flex-1 bg-white rounded-2xl overflow-hidden border border-gray-200"
-              placeholder="Quickly edit your note content..."
-            />
-            <div className="flex justify-end gap-2">
-              <button 
-                onClick={() => setIsQuickEditing(false)}
-                className="px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleQuickSave}
-                className="px-4 py-2 text-sm font-bold bg-purple-500 text-white rounded-xl shadow-lg hover:bg-purple-600 transition-colors"
-              >
-                Save Changes
-              </button>
+      <div className="flex-1 flex overflow-hidden">
+        <div 
+          className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 max-w-none w-full note-content ${!isQuickEditing ? 'prose prose-lg' : ''}`} 
+          dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
+          style={{ 
+            fontFamily: userSettings.defaultFont, 
+            fontSize: `calc(${userSettings.defaultSize || '16px'} * ${zoomLevel / 100})`, 
+            textAlign: note.alignment || userSettings.defaultAlignment || 'start'
+          }}
+        >
+          {isQuickEditing ? (
+            <div className="h-full flex flex-col gap-4 min-h-[300px]">
+              <ReactQuill
+                theme="snow"
+                value={quickEditContent}
+                onChange={setQuickEditContent}
+                modules={{ toolbar: false }}
+                className="flex-1 bg-white rounded-2xl overflow-hidden border border-gray-200"
+                placeholder="Quickly edit your note content..."
+              />
+              <div className="flex justify-end gap-2">
+                <button 
+                  onClick={() => setIsQuickEditing(false)}
+                  className="px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleQuickSave}
+                  className="px-4 py-2 text-sm font-bold bg-purple-500 text-white rounded-xl shadow-lg hover:bg-purple-600 transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div dangerouslySetInnerHTML={{ __html: note.content }} />
-        )}
+          ) : (
+            <>
+              <div dangerouslySetInnerHTML={{ __html: note.content }} />
+              
+              {/* Backlinks Section */}
+              <div className="mt-20 pt-8 border-t border-gray-100">
+                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <LinkIcon size={14} /> Backlinks
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {backlinks.map(bn => (
+                    <button
+                      key={bn.id}
+                      onClick={() => openWindow(bn.id)}
+                      className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 transition-all"
+                    >
+                      {bn.title}
+                    </button>
+                  ))}
+                  {backlinks.length === 0 && (
+                    <span className="text-xs text-gray-400 italic">No backlinks found</span>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Version History Sidebar */}
+        <AnimatePresence>
+          {showHistory && (
+            <motion.div 
+              initial={{ x: 300 }}
+              animate={{ x: 0 }}
+              exit={{ x: 300 }}
+              className="w-64 border-l border-gray-100 bg-gray-50 overflow-y-auto p-4 flex flex-col gap-4"
+            >
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-sm text-gray-700">History</h4>
+                <button onClick={() => setShowHistory(false)} className="p-1 hover:bg-gray-200 rounded-lg">
+                  <X size={14} />
+                </button>
+              </div>
+              {isLoadingVersions ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {versions.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => handleRestoreVersion(v)}
+                      className="w-full text-left p-3 bg-white rounded-xl border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all group"
+                    >
+                      <div className="text-[10px] text-gray-400 font-bold mb-1">
+                        {v.createdAt?.toDate().toLocaleString()}
+                      </div>
+                      <div className="text-xs font-bold text-gray-700 line-clamp-1 group-hover:text-purple-600">
+                        {v.title}
+                      </div>
+                    </button>
+                  ))}
+                  {versions.length === 0 && (
+                    <div className="text-center py-8 text-xs text-gray-400 italic">
+                      No previous versions
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Footer / Actions */}
-      <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
+      <div className={`p-4 border-t flex items-center justify-between ${userSettings.theme === 'dark' ? 'bg-gray-800/40' : 'bg-gray-50/40'}`}>
         <div className="flex items-center gap-2">
           {isAdmin && (
             <>
@@ -1162,6 +1254,156 @@ function TaskItem({
   );
 }
 
+function CanvasView({ 
+  notes, 
+  onUpdateNote, 
+  onContextMenu, 
+  isAdmin, 
+  statuses, 
+  userSettings, 
+  openWindow 
+}: {
+  notes: Note[],
+  onUpdateNote: (id: string, data: Partial<Note>) => void,
+  onContextMenu: (x: number, y: number, type: 'board' | 'note', noteId?: string) => void,
+  isAdmin: boolean,
+  statuses: StatusOption[],
+  userSettings: UserSettings,
+  openWindow: (id: string) => void
+}) {
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  const handleDragEnd = (id: string, x: number, y: number) => {
+    onUpdateNote(id, { canvasX: x, canvasY: y });
+  };
+
+  // Find all links for drawing lines
+  const lines = useMemo(() => {
+    const result: { from: Note, to: Note }[] = [];
+    notes.forEach(note => {
+      // Manual links
+      if (note.links) {
+        note.links.forEach(linkId => {
+          const target = notes.find(n => n.id === linkId);
+          if (target) result.push({ from: note, to: target });
+        });
+      }
+      // [[Name]] links
+      const matches = note.content.match(/\[\[(.*?)\]\]/g);
+      if (matches) {
+        matches.forEach(match => {
+          const title = match.slice(2, -2);
+          const target = notes.find(n => n.title === title);
+          if (target) result.push({ from: note, to: target });
+        });
+      }
+    });
+    return result;
+  }, [notes]);
+
+  return (
+    <div 
+      ref={canvasRef}
+      className="relative w-full h-[2000px] bg-gray-50/50 rounded-[3rem] border-2 border-dashed border-gray-200 overflow-hidden cursor-crosshair"
+      onContextMenu={(e) => {
+        if (isAdmin && e.target === canvasRef.current) {
+          e.preventDefault();
+          onContextMenu(e.clientX, e.clientY, 'board');
+        }
+      }}
+    >
+      <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#9D85FF" />
+          </marker>
+        </defs>
+        {lines.map((line, i) => {
+          const fromX = (line.from.canvasX || 0) + 150;
+          const fromY = (line.from.canvasY || 0) + 100;
+          const toX = (line.to.canvasX || 0) + 150;
+          const toY = (line.to.canvasY || 0) + 100;
+          return (
+            <motion.line
+              key={`${line.from.id}-${line.to.id}-${i}`}
+              x1={fromX}
+              y1={fromY}
+              x2={toX}
+              y2={toY}
+              stroke="#9D85FF"
+              strokeWidth="2"
+              strokeDasharray="5,5"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 0.4 }}
+              transition={{ duration: 1 }}
+            />
+          );
+        })}
+      </svg>
+
+      {notes.map((note) => (
+        <motion.div
+          key={note.id}
+          drag
+          dragMomentum={false}
+          initial={{ x: note.canvasX || 100, y: note.canvasY || 100 }}
+          animate={{ 
+            x: note.canvasX || 100, 
+            y: note.canvasY || 100,
+            width: note.canvasWidth || 300 
+          }}
+          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          onDragEnd={(_, info) => {
+            const newX = (note.canvasX || 100) + info.offset.x;
+            const newY = (note.canvasY || 100) + info.offset.y;
+            handleDragEnd(note.id, newX, newY);
+          }}
+          className="absolute z-10"
+        >
+          <NoteCard 
+            note={note}
+            isAdmin={isAdmin}
+            statuses={statuses}
+            userSettings={userSettings}
+            viewMode="full"
+            onClick={() => openWindow(note.id)}
+            onEdit={() => {}} // Handled by openWindow
+            onFavorite={() => {}}
+            onArchive={() => {}}
+            onDelete={() => {}}
+            onStatusChange={() => {}}
+            onColorChange={() => {}}
+            onPin={() => {}}
+            onSizeChange={() => {}}
+            onToggleCollapse={() => {}}
+            onContextMenu={onContextMenu}
+          />
+          {isAdmin && (
+            <div 
+              className="absolute -right-2 -bottom-2 w-4 h-4 bg-purple-500 rounded-full cursor-nwse-resize z-20 shadow-lg border-2 border-white"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                const startX = e.clientX;
+                const startWidth = note.canvasWidth || 300;
+                const onMouseMove = (moveE: MouseEvent) => {
+                  const newWidth = Math.max(200, startWidth + (moveE.clientX - startX));
+                  onUpdateNote(note.id, { canvasWidth: newWidth });
+                };
+                const onMouseUp = () => {
+                  window.removeEventListener('mousemove', onMouseMove);
+                  window.removeEventListener('mouseup', onMouseUp);
+                };
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+              }}
+            />
+          )}
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -1170,17 +1412,18 @@ function AppContent() {
   const [currentNote, setCurrentNote] = useState<Note | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'board' | 'archive' | 'favorites' | 'due' | 'workflow'>('board');
+  const [viewMode, setViewMode] = useState<'board' | 'archive' | 'favorites' | 'due' | 'workflow' | 'canvas'>('board');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
+  const [isQuickNote, setIsQuickNote] = useState(false);
   const [showAddFolderModal, setShowAddFolderModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   const [editNoteData, setEditNoteData] = useState<Note | null>(null);
   const [editFolderData, setEditFolderData] = useState<FolderType | null>(null);
   const [loginPassword, setLoginPassword] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchEverywhere, setSearchEverywhere] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [statuses, setStatuses] = useState<StatusOption[]>([
@@ -1200,9 +1443,13 @@ function AppContent() {
     enableNotifications: false,
     isSidebarCollapsed: false,
     gridColumns: 3,
-    notesPerColumn: 10
+    notesPerColumn: 10,
+    sortBy: 'date',
+    theme: 'light',
+    boardTheme: '#F9F7FF'
   });
   const [activeWindows, setActiveWindows] = useState<ActiveWindow[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [maxZIndex, setMaxZIndex] = useState(100);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -1308,6 +1555,10 @@ function AppContent() {
     const saved = localStorage.getItem('isTaskSidebarPinned');
     return saved ? JSON.parse(saved) : false;
   });
+
+  const [showDensityPopover, setShowDensityPopover] = useState(false);
+  const [showBgPopover, setShowBgPopover] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, type: 'board' | 'note', noteId?: string } | null>(null);
 
   useEffect(() => {
     localStorage.setItem('isTaskSidebarOpen', JSON.stringify(isTaskSidebarOpen));
@@ -1818,6 +2069,19 @@ function AppContent() {
           ...data,
           updatedAt: serverTimestamp()
         });
+        
+        // Save version if content or title changed
+        if (data.content !== undefined || data.title !== undefined) {
+          const vPath = `artifacts/${appId}/public/data/notes/${id}/versions`;
+          await addDoc(collection(db, vPath), {
+            noteId: id,
+            title: data.title !== undefined ? data.title : oldNote.title,
+            content: data.content !== undefined ? data.content : oldNote.content,
+            createdAt: serverTimestamp(),
+            uid: user?.uid
+          });
+        }
+
         addToHistory({ type: 'note', action: 'update', id, oldData, newData: { ...oldNote, ...data } });
       }
     } catch (error) {
@@ -1860,18 +2124,19 @@ function AppContent() {
     setNoteAlignment(userSettings.defaultAlignment);
   };
 
-  const handleAddFolder = async (name: string, parentId: string | null) => {
+  const handleAddFolder = async (name: string, parentId: string | null, wallpaper: string = '') => {
     if (!isAdmin || !name.trim()) return;
     const path = `artifacts/${appId}/public/data/folders`;
     try {
       if (editFolderData) {
         const docRef = doc(db, path, editFolderData.id);
-        await updateDoc(docRef, { name, parentId });
+        await updateDoc(docRef, { name, parentId, wallpaper });
         setEditFolderData(null);
       } else {
         await addDoc(collection(db, path), {
           name,
           parentId,
+          wallpaper,
           createdAt: serverTimestamp()
         });
       }
@@ -1949,7 +2214,7 @@ function AppContent() {
       const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            note.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            note.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesFolder = currentFolderId ? note.folderId === currentFolderId : true;
+      const matchesFolder = (currentFolderId && !searchEverywhere) ? note.folderId === currentFolderId : true;
       const matchesTags = selectedTags.length > 0 ? selectedTags.every(t => note.tags.includes(t)) : true;
       const matchesStatus = statusFilter === 'all' ? true : note.status === statusFilter;
       
@@ -1965,15 +2230,24 @@ function AppContent() {
       
       return !note.isArchived && baseFilter && matchesFolder;
     });
-  }, [notes, searchQuery, currentFolderId, selectedTags, viewMode, statusFilter]);
+  }, [notes, searchQuery, currentFolderId, selectedTags, viewMode, statusFilter, searchEverywhere]);
 
   const sortedNotes = useMemo(() => {
     return [...filteredNotes].sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+      
+      if (userSettings.sortBy === 'status') {
+        const statusA = statuses.findIndex(s => s.id === a.status);
+        const statusB = statuses.findIndex(s => s.id === b.status);
+        if (statusA !== statusB) return statusA - statusB;
+      }
+      
+      const dateA = a.updatedAt?.seconds || a.createdAt?.seconds || 0;
+      const dateB = b.updatedAt?.seconds || b.createdAt?.seconds || 0;
+      return dateB - dateA;
     });
-  }, [filteredNotes]);
+  }, [filteredNotes, userSettings.sortBy, statuses]);
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -2049,10 +2323,22 @@ function AppContent() {
     );
   }
 
+  const currentFolder = folders.find(f => f.id === currentFolderId);
+  const boardBackground = currentFolder?.wallpaper || userSettings.boardTheme || '';
+
   return (
-    <div className="min-h-screen bg-[#F9F7FF] text-[#222222] font-sans selection:bg-purple-100" style={{ backgroundColor: currentFolderId ? folders.find(f => f.id === currentFolderId)?.background : undefined }}>
+    <div 
+      className={`min-h-screen flex flex-col transition-all duration-500 ${userSettings.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-base text-gray-900'}`} 
+      style={{ 
+        background: boardBackground.startsWith('http') ? `url(${boardBackground})` : boardBackground,
+        backgroundColor: userSettings.theme === 'dark' ? '#111827' : '#F0F8FF',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-purple-100 sticky top-0 z-[50] px-4 md:px-8 py-4">
+      <header className={`backdrop-blur-md border-b sticky top-0 z-[50] px-4 md:px-8 py-4 ${userSettings.theme === 'dark' ? 'bg-gray-900/80 border-gray-800' : 'bg-white/80 border-secondary'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
@@ -2062,7 +2348,7 @@ function AppContent() {
               <Menu size={24} />
             </button>
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}>
-              <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-purple-200">
+              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-primary/20">
                 <PlusCircle size={24} />
               </div>
               <h1 className="text-xl font-bold tracking-tight hidden sm:block truncate text-gray-800">Notes For Myself</h1>
@@ -2088,7 +2374,7 @@ function AppContent() {
           </div>
 
           {/* Search Bar */}
-          <div className="hidden md:flex relative items-center bg-white border border-purple-100 rounded-full py-2 px-4 shadow-sm hover:shadow-md transition-shadow max-w-md w-full mx-4">
+          <div className={`hidden md:flex relative items-center border rounded-full py-2 px-4 shadow-sm hover:shadow-md transition-shadow max-w-md w-full mx-4 ${userSettings.theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-secondary/50'}`}>
             <Search size={18} className="text-gray-400 mr-2" />
             <input 
               type="text" 
@@ -2100,7 +2386,7 @@ function AppContent() {
             <div className="h-6 w-px bg-gray-100 mx-2" />
             <button 
               onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className={`p-2 rounded-full transition-colors relative ${showFilterDropdown ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+              className={`p-2 rounded-full transition-colors relative ${showFilterDropdown ? 'bg-primary text-white' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
             >
               <Filter size={14} />
               {statusFilter !== 'all' && (
@@ -2111,6 +2397,15 @@ function AppContent() {
             {showFilterDropdown && (
               <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50">
                 <div className="mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Global Search</h4>
+                    <button 
+                      onClick={() => setSearchEverywhere(!searchEverywhere)}
+                      className={`w-10 h-5 rounded-full transition-all relative ${searchEverywhere ? 'bg-purple-500' : 'bg-gray-200'}`}
+                    >
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${searchEverywhere ? 'right-1' : 'left-1'}`} />
+                    </button>
+                  </div>
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">View Mode</h4>
                   <div className="grid grid-cols-2 gap-2">
                     <button 
@@ -2168,36 +2463,52 @@ function AppContent() {
 
           <div className="flex items-center gap-2">
             {currentFolderId && isAdmin && (
-              <div className="relative group/bg">
+              <div className="relative">
                 <button 
-                  className="p-2 hover:bg-purple-50 rounded-full text-gray-400 hover:text-purple-500 transition-colors"
+                  onClick={() => setShowBgPopover(!showBgPopover)}
+                  className={`p-2 rounded-full transition-colors ${showBgPopover ? 'bg-purple-100 text-purple-600' : 'hover:bg-purple-50 text-gray-400 hover:text-purple-500'}`}
                   title="Board Background"
                 >
                   <Palette size={20} />
                 </button>
-                <div className="absolute top-full right-0 mt-2 p-3 bg-white rounded-2xl shadow-2xl border border-purple-50 hidden group-hover/bg:grid grid-cols-4 gap-2 z-50 w-48">
-                  {['#F9F7FF', '#FFF7F7', '#F7FFF7', '#F7F7FF', '#FFFBF0', '#F0FBFF', '#FBF0FF', '#FFFFFF'].map(bg => (
-                    <button
-                      key={bg}
-                      onClick={() => updateFolderBackground(currentFolderId, bg)}
-                      className="w-8 h-8 rounded-lg border border-gray-100 hover:scale-110 transition-transform"
-                      style={{ backgroundColor: bg }}
-                    />
-                  ))}
-                </div>
+                <AnimatePresence>
+                  {showBgPopover && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowBgPopover(false)} />
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute top-full right-0 mt-2 p-3 bg-white rounded-2xl shadow-2xl border border-purple-50 grid grid-cols-4 gap-2 z-50 w-48"
+                      >
+                        {['#F9F7FF', '#FFF7F7', '#F7FFF7', '#F7F7FF', '#FFFBF0', '#F0FBFF', '#FBF0FF', '#FFFFFF'].map(bg => (
+                          <button
+                            key={bg}
+                            onClick={() => {
+                              updateFolderBackground(currentFolderId, bg);
+                              setShowBgPopover(false);
+                            }}
+                            className="w-8 h-8 rounded-lg border border-gray-100 hover:scale-110 transition-transform"
+                            style={{ backgroundColor: bg }}
+                          />
+                        ))}
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
             )}
             <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-full border border-gray-100">
               <button 
                 onClick={() => handleToggleAllCollapse(true)}
-                className="p-1.5 hover:bg-purple-50 rounded-full text-gray-400 hover:text-purple-500 transition-colors"
+                className="p-1.5 hover:bg-primary/10 rounded-full text-gray-400 hover:text-primary transition-colors"
                 title="Collapse All"
               >
                 <Minimize2 size={16} />
               </button>
               <button 
                 onClick={() => handleToggleAllCollapse(false)}
-                className="p-1.5 hover:bg-purple-50 rounded-full text-gray-400 hover:text-purple-500 transition-colors"
+                className="p-1.5 hover:bg-primary/10 rounded-full text-gray-400 hover:text-primary transition-colors"
                 title="Expand All"
               >
                 <Maximize2 size={16} />
@@ -2205,22 +2516,23 @@ function AppContent() {
               <div className="w-px h-4 bg-gray-200 mx-1" />
               <button 
                 onClick={() => updateUserSettings({ gridColumns: 1 })}
-                className={`p-1.5 rounded-full transition-all ${userSettings.gridColumns === 1 ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`p-1.5 rounded-full transition-all ${userSettings.gridColumns === 1 ? 'bg-white shadow-sm text-primary' : 'text-gray-400 hover:text-gray-600'}`}
                 title="List View"
               >
                 <List size={16} />
               </button>
               <button 
                 onClick={() => updateUserSettings({ gridColumns: 3 })}
-                className={`p-1.5 rounded-full transition-all ${userSettings.gridColumns > 1 ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`p-1.5 rounded-full transition-all ${userSettings.gridColumns > 1 ? 'bg-white shadow-sm text-primary' : 'text-gray-400 hover:text-gray-600'}`}
                 title="Grid View"
               >
                 <Grid size={16} />
               </button>
               <div className="w-px h-4 bg-gray-200 mx-1" />
-              <div className="relative group/layout">
+              <div className="relative">
                 <button 
-                  className="p-1.5 rounded-full text-gray-400 hover:text-purple-500 transition-colors flex items-center gap-1.5 bg-white/50 border border-transparent hover:border-purple-100"
+                  onClick={() => setShowDensityPopover(!showDensityPopover)}
+                  className={`p-1.5 rounded-full transition-colors flex items-center gap-1.5 border ${showDensityPopover ? 'bg-purple-100 border-purple-200 text-purple-600' : 'bg-white/50 border-transparent text-gray-400 hover:text-purple-500 hover:border-purple-100'}`}
                   title="Grid Density"
                 >
                   <div className="flex items-end gap-0.5 h-3">
@@ -2234,36 +2546,55 @@ function AppContent() {
                   </div>
                   <span className="text-[10px] font-bold text-gray-500">{userSettings.gridColumns}</span>
                 </button>
-                <div className="absolute top-full right-0 mt-2 p-3 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-purple-50 hidden group-hover/layout:flex flex-col gap-3 z-50 min-w-[180px] animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Grid Density</span>
-                    <span className="text-[10px] font-bold text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full">{userSettings.gridColumns} Cols</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5, 6].map(cols => (
-                      <button 
-                        key={cols}
-                        onClick={() => updateUserSettings({ gridColumns: cols })}
-                        className={`flex-1 h-9 flex items-center justify-center rounded-xl text-xs font-bold transition-all ${userSettings.gridColumns === cols ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-gray-400 hover:bg-purple-50 hover:text-purple-500'}`}
+                <AnimatePresence>
+                  {showDensityPopover && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowDensityPopover(false)} />
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute top-full right-0 mt-2 p-4 bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-purple-50 z-50 min-w-[220px]"
                       >
-                        {cols}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                        <div className="flex items-center justify-between mb-4 px-1">
+                          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Grid Density</span>
+                          <span className="text-xs font-bold text-purple-500 bg-purple-50 px-3 py-1 rounded-full">{userSettings.gridColumns} Columns</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[1, 2, 3, 4, 5, 6].map(cols => (
+                            <button 
+                              key={cols}
+                              onClick={() => {
+                                updateUserSettings({ gridColumns: cols });
+                                setShowDensityPopover(false);
+                              }}
+                              className={`h-12 flex items-center justify-center rounded-2xl text-sm font-bold transition-all ${userSettings.gridColumns === cols ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-gray-400 hover:bg-purple-50 hover:text-purple-500'}`}
+                            >
+                              {cols}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
               <div className="w-px h-4 bg-gray-200 mx-1" />
               <button 
-                onClick={() => updateUserSettings({ cardViewMode: 'compact' })}
-                className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'compact' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
-                title="Compact View"
+                onClick={() => {
+                  // Auto-arrange logic: Sort by pinned, then status, then date
+                  // This is a visual sort, we can update the userSettings to reflect a sort preference
+                  updateUserSettings({ sortBy: userSettings.sortBy === 'status' ? 'date' : 'status' });
+                }}
+                className={`p-1.5 rounded-full transition-all ${userSettings.sortBy === 'status' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                title="Sort by Status/Date"
               >
                 <LayoutGrid size={16} />
               </button>
               <button 
-                onClick={() => updateUserSettings({ cardViewMode: 'full' })}
-                className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'full' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-400 hover:text-gray-600'}`}
-                title="Full View"
+                onClick={() => updateUserSettings({ cardViewMode: userSettings.cardViewMode === 'compact' ? 'full' : 'compact' })}
+                className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'compact' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                title="Toggle View Mode"
               >
                 <Type size={16} />
               </button>
@@ -2272,14 +2603,14 @@ function AppContent() {
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setIsTaskSidebarOpen(!isTaskSidebarOpen)}
-                className={`p-2 rounded-full transition-colors ${isTaskSidebarOpen ? 'bg-purple-500 text-white shadow-lg shadow-purple-200' : 'hover:bg-purple-50 text-gray-600'}`}
+                className={`p-2 rounded-full transition-colors ${isTaskSidebarOpen ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-primary/10 text-gray-600'}`}
                 title="Tasks"
               >
                 <CheckSquare size={20} />
               </button>
               <button 
-                onClick={() => { setEditNoteData(null); resetNoteForm(); setShowAddNoteModal(true); }}
-                className="bg-purple-500 text-white p-2 sm:px-4 sm:py-2 rounded-full text-sm font-bold shadow-lg shadow-purple-200 hover:shadow-purple-300 hover:-translate-y-0.5 transition-all flex items-center gap-2 group"
+                onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
+                className="bg-primary text-white p-2 sm:px-4 sm:py-2 rounded-full text-sm font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center gap-2 group"
                 title="New Note"
               >
                 <Plus size={18} className="group-hover:rotate-90 transition-transform" /> 
@@ -2287,7 +2618,7 @@ function AppContent() {
               </button>
               <button 
                 onClick={() => setShowSettingsModal(true)}
-                className="p-2 hover:bg-purple-50 rounded-full text-gray-600 transition-colors"
+                className="p-2 hover:bg-primary/10 rounded-full text-gray-600 transition-colors"
                 title="Settings"
               >
                 <Settings size={20} />
@@ -2306,7 +2637,7 @@ function AppContent() {
 
       <div className="flex w-full">
         {/* Sidebar - Desktop */}
-        <aside className={`hidden md:block transition-all duration-300 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto border-r border-gray-100 ${userSettings.isSidebarCollapsed ? 'w-20' : 'w-64'} p-4`}>
+        <aside className={`hidden md:block transition-all duration-300 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto border-r ${userSettings.theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-secondary/30 border-secondary/50'} ${userSettings.isSidebarCollapsed ? 'w-20' : 'w-64'} p-4`}>
           <div className="flex justify-end mb-4">
             <button 
               onClick={() => setUserSettings(prev => ({ ...prev, isSidebarCollapsed: !prev.isSidebarCollapsed }))}
@@ -2321,8 +2652,21 @@ function AppContent() {
               <ul className="space-y-1">
                 <li>
                   <button 
+                    onClick={() => setViewMode('canvas')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'canvas' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-white/50 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                  >
+                    <Share2 size={18} /> {!userSettings.isSidebarCollapsed && 'Canvas'}
+                    {userSettings.isSidebarCollapsed && (
+                      <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all shadow-lg translate-x-2 group-hover/tooltip:translate-x-0">
+                        Canvas
+                      </div>
+                    )}
+                  </button>
+                </li>
+                <li>
+                  <button 
                     onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'board' && !currentFolderId ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'board' && !currentFolderId ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-white/50 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                   >
                     <Grid size={18} /> {!userSettings.isSidebarCollapsed && 'All Notes'}
                     {userSettings.isSidebarCollapsed && (
@@ -2335,7 +2679,7 @@ function AppContent() {
                 <li>
                   <button 
                     onClick={() => setViewMode('workflow')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'workflow' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'workflow' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-white/50 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                   >
                     <Layout size={18} /> {!userSettings.isSidebarCollapsed && 'Workflow Board'}
                     {userSettings.isSidebarCollapsed && (
@@ -2348,7 +2692,7 @@ function AppContent() {
                 <li>
                   <button 
                     onClick={() => setViewMode('favorites')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'favorites' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'favorites' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-white/50 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                   >
                     <Star size={18} /> {!userSettings.isSidebarCollapsed && 'Favorites'}
                     {userSettings.isSidebarCollapsed && (
@@ -2374,7 +2718,7 @@ function AppContent() {
                 <li>
                   <button 
                     onClick={() => setViewMode('archive')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'archive' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'archive' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-white/50 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                   >
                     <Archive size={18} /> {!userSettings.isSidebarCollapsed && 'Archive'}
                     {userSettings.isSidebarCollapsed && (
@@ -2393,7 +2737,7 @@ function AppContent() {
                 {isAdmin && !userSettings.isSidebarCollapsed && (
                   <button 
                     onClick={() => { setEditFolderData(null); setShowAddFolderModal(true); }} 
-                    className="text-purple-500 hover:bg-purple-50 p-1 rounded transition-colors"
+                    className="text-primary hover:bg-primary/10 p-1 rounded transition-colors"
                     title="New Folder"
                   >
                     <Plus size={14} />
@@ -2405,7 +2749,7 @@ function AppContent() {
                   <li key={folder.id} className="group/folder relative">
                     <button 
                       onClick={() => { setCurrentFolderId(folder.id); setViewMode('board'); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${currentFolderId === folder.id ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-100 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${currentFolderId === folder.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-white/50 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                     >
                       <Folder size={18} /> {!userSettings.isSidebarCollapsed && folder.name}
                       {userSettings.isSidebarCollapsed && (
@@ -2434,7 +2778,7 @@ function AppContent() {
                   <button 
                     key={tag}
                     onClick={() => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${selectedTags.includes(tag) ? 'bg-purple-500 border-purple-500 text-white' : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'}`}
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${selectedTags.includes(tag) ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white text-gray-500 hover:bg-gray-50 border border-gray-100'}`}
                   >
                     #{tag}
                   </button>
@@ -2446,10 +2790,12 @@ function AppContent() {
 
         {/* Main Content */}
         <main 
-          className="flex-1 p-4 md:p-8"
+          className="flex-1 p-4 md:p-8 relative"
           onContextMenu={(e) => {
-            e.preventDefault();
-            setContextMenu({ x: e.clientX, y: e.clientY });
+            if (isAdmin) {
+              e.preventDefault();
+              setContextMenu({ x: e.clientX, y: e.clientY, type: 'board' });
+            }
           }}
           onClick={() => setContextMenu(null)}
         >
@@ -2477,7 +2823,17 @@ function AppContent() {
           </div>
 
           {/* Notes Grid or Workflow Board */}
-          {viewMode === 'workflow' ? (
+          {viewMode === 'canvas' ? (
+            <CanvasView 
+              notes={sortedNotes}
+              onUpdateNote={handleUpdateNote}
+              onContextMenu={(x, y, type, noteId) => setContextMenu({ x, y, type, noteId })}
+              isAdmin={isAdmin}
+              statuses={statuses}
+              userSettings={userSettings}
+              openWindow={openWindow}
+            />
+          ) : viewMode === 'workflow' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
               {statuses.filter(s => s.isVisible).map((status) => (
                 <div key={status.id} className="bg-gray-100/50 rounded-3xl p-4 min-h-[600px] flex flex-col gap-4">
@@ -2518,6 +2874,7 @@ function AppContent() {
                         onPin={() => handlePinNote(note.id, !note.isPinned)}
                         onSizeChange={(s) => handleSizeNote(note.id, s)}
                         onToggleCollapse={() => handleToggleCollapse(note.id, !note.isCollapsed)}
+                        onContextMenu={(x, y, noteId) => setContextMenu({ x, y, type: 'note', noteId })}
                         statuses={statuses}
                         viewMode={userSettings.cardViewMode}
                         onClick={() => openWindow(note.id)}
@@ -2561,6 +2918,7 @@ function AppContent() {
                     onPin={() => handlePinNote(note.id, !note.isPinned)}
                     onSizeChange={(s) => handleSizeNote(note.id, s)}
                     onToggleCollapse={() => handleToggleCollapse(note.id, !note.isCollapsed)}
+                    onContextMenu={(x, y, noteId) => setContextMenu({ x, y, type: 'note', noteId })}
                     statuses={statuses}
                     viewMode={userSettings.cardViewMode}
                     onClick={() => openWindow(note.id)}
@@ -2687,163 +3045,187 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white w-full max-w-4xl rounded-none md:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-full md:h-auto md:max-h-[90vh]"
+              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full ${isQuickNote ? 'max-w-xl' : 'max-w-4xl'} rounded-none md:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-full md:h-auto md:max-h-[90vh]`}
             >
-              <div className="p-6 border-b flex items-center justify-between bg-gray-50">
-                <h2 className="text-2xl font-bold">{editNoteData ? 'Edit Note' : 'Create New Note'}</h2>
-                <button onClick={() => setShowAddNoteModal(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+              <div className={`p-6 border-b flex items-center justify-between ${userSettings.theme === 'dark' ? 'bg-gray-800/40' : 'bg-gray-50/40'}`}>
+                <h2 className="text-2xl font-bold">{editNoteData ? 'Edit Note' : (isQuickNote ? 'Quick Note' : 'Create New Note')}</h2>
+                <button onClick={() => setShowAddNoteModal(false)} className="p-2 hover:bg-gray-200/50 rounded-full transition-colors">
                   <X size={24} />
                 </button>
               </div>
               
               <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {isQuickNote ? (
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Title</label>
-                      <input 
-                        type="text" 
-                        placeholder="Enter note title..."
-                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all font-bold text-lg"
-                        value={noteTitle}
-                        onChange={(e) => setNoteTitle(e.target.value)}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Folder</label>
-                        <select 
-                          className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
-                          value={noteFolderId || ''}
-                          onChange={(e) => setNoteFolderId(e.target.value || null)}
-                        >
-                          <option value="">No Folder</option>
-                          {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Status</label>
-                        <select 
-                          className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
-                          value={noteStatus}
-                          onChange={(e) => setNoteStatus(e.target.value)}
-                        >
-                          {statuses.filter(s => s.isVisible).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Note Color</label>
-                      <div className="flex flex-wrap gap-2">
-                        {PASTEL_COLORS.map(c => (
-                          <button
-                            key={c.value}
-                            onClick={() => setNoteColor(c.value)}
-                            className={`w-8 h-8 rounded-full border-2 transition-all ${noteColor === c.value ? 'border-purple-500 scale-110 shadow-md' : 'border-white shadow-sm hover:scale-105'}`}
-                            style={{ backgroundColor: c.value || '#FFFFFF' }}
-                            title={c.name}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Due Date</label>
-                      <input 
-                        type="date" 
-                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
-                        value={noteDueDate}
-                        onChange={(e) => setNoteDueDate(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Image URL</label>
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          placeholder="https://images.unsplash.com/..."
-                          className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
-                          value={noteImageUrl}
-                          onChange={(e) => setNoteImageUrl(e.target.value)}
-                        />
-                        <button 
-                          onClick={async () => {
-                            try {
-                              const clipboardItems = await navigator.clipboard.read();
-                              for (const item of clipboardItems) {
-                                for (const type of item.types) {
-                                  if (type.startsWith('image/')) {
-                                    const blob = await item.getType(type);
-                                    const reader = new FileReader();
-                                    reader.onload = (event) => {
-                                      const base64 = event.target?.result as string;
-                                      setEditorContent(prev => prev + `<p><img src="${base64}" /></p>`);
-                                    };
-                                    reader.readAsDataURL(blob);
-                                  }
-                                }
-                              }
-                            } catch (err) {
-                              console.error("Clipboard access failed:", err);
-                              alert("Please use Ctrl+V (or Cmd+V) to paste images directly into the editor.");
-                            }
-                          }}
-                          className="p-4 bg-gray-100 rounded-2xl text-gray-500 hover:bg-gray-200 transition-colors"
-                          title="Paste image from clipboard"
-                        >
-                          <ImageIcon size={20} />
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Alignment</label>
-                      <div className="flex gap-2">
-                        {(['left', 'center', 'right', 'justify'] as const).map(align => (
-                          <button
-                            key={align}
-                            onClick={() => setNoteAlignment(align)}
-                            className={`flex-1 p-3 rounded-xl border-2 transition-all flex items-center justify-center ${noteAlignment === align ? 'border-purple-500 bg-purple-50 text-purple-500' : 'border-gray-100 text-gray-400 hover:bg-gray-50'}`}
-                          >
-                            {align === 'left' && <AlignLeft size={18} />}
-                            {align === 'center' && <AlignCenter size={18} />}
-                            {align === 'right' && <AlignRight size={18} />}
-                            {align === 'justify' && <AlignJustify size={18} />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Tags (comma separated)</label>
-                      <input 
-                        type="text" 
-                        placeholder="work, personal, idea..."
-                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
-                        value={noteTags.join(', ')}
-                        onChange={(e) => setNoteTags(e.target.value.split(',').map(t => t.trim()).filter(t => t !== ''))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col">
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Content</label>
+                    <input 
+                      type="text" 
+                      placeholder="Title..."
+                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all font-bold text-xl"
+                      value={noteTitle}
+                      onChange={(e) => setNoteTitle(e.target.value)}
+                    />
                     <div 
                       ref={quillWrapperRef}
-                      className="flex-1 min-h-[300px] border border-gray-200 rounded-2xl overflow-hidden bg-white"
-                      dir={!noteAlignment ? "auto" : (noteAlignment === 'right' ? 'rtl' : (noteAlignment === 'left' ? 'ltr' : 'auto'))}
-                      style={{ textAlign: noteAlignment || 'start' }}
+                      className="min-h-[300px] border border-gray-200 rounded-2xl overflow-hidden bg-white"
                     >
                       <ReactQuill 
                         theme="snow" 
                         value={editorContent} 
                         onChange={setEditorContent}
-                        modules={quillModules}
+                        modules={{ toolbar: [['bold', 'italic', 'underline'], ['link', 'image'], ['clean']] }}
                         className="h-full"
                       />
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Title</label>
+                        <input 
+                          type="text" 
+                          placeholder="Enter note title..."
+                          className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all font-bold text-lg"
+                          value={noteTitle}
+                          onChange={(e) => setNoteTitle(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Folder</label>
+                          <select 
+                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
+                            value={noteFolderId || ''}
+                            onChange={(e) => setNoteFolderId(e.target.value || null)}
+                          >
+                            <option value="">No Folder</option>
+                            {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Status</label>
+                          <select 
+                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
+                            value={noteStatus}
+                            onChange={(e) => setNoteStatus(e.target.value)}
+                          >
+                            {statuses.filter(s => s.isVisible).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Note Color</label>
+                        <div className="flex flex-wrap gap-2">
+                          {PASTEL_COLORS.map(c => (
+                            <button
+                              key={c.value}
+                              onClick={() => setNoteColor(c.value)}
+                              className={`w-8 h-8 rounded-full border-2 transition-all ${noteColor === c.value ? 'border-purple-500 scale-110 shadow-md' : 'border-white shadow-sm hover:scale-105'}`}
+                              style={{ backgroundColor: c.value || '#FFFFFF' }}
+                              title={c.name}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Due Date</label>
+                        <input 
+                          type="date" 
+                          className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
+                          value={noteDueDate}
+                          onChange={(e) => setNoteDueDate(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Image URL</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            placeholder="https://images.unsplash.com/..."
+                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
+                            value={noteImageUrl}
+                            onChange={(e) => setNoteImageUrl(e.target.value)}
+                          />
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const clipboardItems = await navigator.clipboard.read();
+                                for (const item of clipboardItems) {
+                                  for (const type of item.types) {
+                                    if (type.startsWith('image/')) {
+                                      const blob = await item.getType(type);
+                                      const reader = new FileReader();
+                                      reader.onload = (event) => {
+                                        const base64 = event.target?.result as string;
+                                        setEditorContent(prev => prev + `<p><img src="${base64}" /></p>`);
+                                      };
+                                      reader.readAsDataURL(blob);
+                                    }
+                                  }
+                                }
+                              } catch (err) {
+                                console.error("Clipboard access failed:", err);
+                                alert("Please use Ctrl+V (or Cmd+V) to paste images directly into the editor.");
+                              }
+                            }}
+                            className="p-4 bg-gray-100 rounded-2xl text-gray-500 hover:bg-gray-200 transition-colors"
+                            title="Paste image from clipboard"
+                          >
+                            <ImageIcon size={20} />
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Alignment</label>
+                        <div className="flex gap-2">
+                          {(['left', 'center', 'right', 'justify'] as const).map(align => (
+                            <button
+                              key={align}
+                              onClick={() => setNoteAlignment(align)}
+                              className={`flex-1 p-3 rounded-xl border-2 transition-all flex items-center justify-center ${noteAlignment === align ? 'border-purple-500 bg-purple-50 text-purple-500' : 'border-gray-100 text-gray-400 hover:bg-gray-50'}`}
+                            >
+                              {align === 'left' && <AlignLeft size={18} />}
+                              {align === 'center' && <AlignCenter size={18} />}
+                              {align === 'right' && <AlignRight size={18} />}
+                              {align === 'justify' && <AlignJustify size={18} />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Tags (comma separated)</label>
+                        <input 
+                          type="text" 
+                          placeholder="work, personal, idea..."
+                          className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
+                          value={noteTags.join(', ')}
+                          onChange={(e) => setNoteTags(e.target.value.split(',').map(t => t.trim()).filter(t => t !== ''))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Content</label>
+                      <div 
+                        ref={quillWrapperRef}
+                        className="flex-1 min-h-[300px] border border-gray-200 rounded-2xl overflow-hidden bg-white"
+                        dir={!noteAlignment ? "auto" : (noteAlignment === 'right' ? 'rtl' : (noteAlignment === 'left' ? 'ltr' : 'auto'))}
+                        style={{ textAlign: noteAlignment || 'start' }}
+                      >
+                        <ReactQuill 
+                          theme="snow" 
+                          value={editorContent} 
+                          onChange={setEditorContent}
+                          modules={quillModules}
+                          className="h-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+              <div className={`p-6 border-t flex justify-end gap-3 ${userSettings.theme === 'dark' ? 'bg-gray-800/40' : 'bg-gray-50/40'}`}>
                 <button 
                   onClick={() => setShowAddNoteModal(false)}
                   className="px-6 py-3 bg-white border border-gray-300 rounded-2xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
@@ -2852,7 +3234,7 @@ function AppContent() {
                 </button>
                 <button 
                   onClick={handleAddNote}
-                  className="px-8 py-3 bg-purple-500 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                  className="px-8 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all"
                 >
                   {editNoteData ? 'Update Note' : 'Save Note'}
                 </button>
@@ -2874,7 +3256,7 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-8"
+              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full max-w-md rounded-3xl shadow-2xl p-8`}
             >
               <h2 className="text-2xl font-bold mb-6">{editFolderData ? 'Edit Folder' : 'New Folder'}</h2>
               <div className="space-y-4">
@@ -2884,7 +3266,7 @@ function AppContent() {
                     type="text" 
                     id="folderName"
                     placeholder="Enter folder name..."
-                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all font-bold"
+                    className="w-full p-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold"
                     defaultValue={editFolderData?.name}
                   />
                 </div>
@@ -2892,12 +3274,22 @@ function AppContent() {
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Parent Folder (Optional)</label>
                   <select 
                     id="folderParent"
-                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
+                    className="w-full p-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-sm font-medium"
                     defaultValue={editFolderData?.parentId || ''}
                   >
                     <option value="">Root</option>
                     {folders.filter(f => f.id !== editFolderData?.id).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Folder Wallpaper (URL or Gradient)</label>
+                  <input 
+                    type="text" 
+                    id="folderWallpaper"
+                    placeholder="linear-gradient(to right, #ff7e5f, #feb47b) or image URL"
+                    className="w-full p-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold"
+                    defaultValue={editFolderData?.wallpaper}
+                  />
                 </div>
               </div>
               <div className="flex gap-3 mt-8">
@@ -2905,15 +3297,16 @@ function AppContent() {
                   onClick={() => {
                     const name = (document.getElementById('folderName') as HTMLInputElement).value;
                     const parentId = (document.getElementById('folderParent') as HTMLSelectElement).value || null;
-                    handleAddFolder(name, parentId);
+                    const wallpaper = (document.getElementById('folderWallpaper') as HTMLInputElement).value || '';
+                    handleAddFolder(name, parentId, wallpaper);
                   }}
-                  className="flex-1 bg-purple-500 text-white py-4 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all"
+                  className="flex-1 bg-primary text-white py-4 rounded-2xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
                 >
                   Save Folder
                 </button>
                 <button 
                   onClick={() => setShowAddFolderModal(false)}
-                  className="flex-1 bg-gray-100 text-gray-600 py-4 rounded-2xl font-bold hover:bg-gray-200 transition-all"
+                  className="flex-1 bg-white/50 text-gray-600 py-4 rounded-2xl font-bold hover:bg-white/80 transition-all border border-gray-200"
                 >
                   Cancel
                 </button>
@@ -2955,6 +3348,7 @@ function AppContent() {
                 key={win.id}
                 window={win}
                 note={note}
+                notes={notes}
                 onClose={() => closeWindow(win.id)}
                 onMinimize={() => toggleMinimizeWindow(win.id)}
                 onMaximize={() => toggleMaximizeWindow(win.id)}
@@ -2962,6 +3356,7 @@ function AppContent() {
                 onResize={(w, h) => updateWindowSize(win.id, w, h)}
                 onDrag={(x, y) => updateWindowPos(win.id, x, y)}
                 isAdmin={isAdmin}
+                openWindow={openWindow}
                 onEdit={() => {
                   setEditNoteData(note);
                   setNoteTitle(note.title);
@@ -2980,6 +3375,7 @@ function AppContent() {
                 onStatusChange={(status) => updateNoteStatus(note.id, status)}
                 onColorChange={(color) => updateNoteColor(note.id, color)}
                 onUpdateNote={handleUpdateNote}
+                onContextMenu={(x, y, noteId) => setContextMenu({ x, y, type: 'note', noteId })}
                 statuses={statuses}
                 userSettings={userSettings}
               />
@@ -3006,55 +3402,146 @@ function AppContent() {
         )}
       </AnimatePresence>
 
-      {/* Context Menu */}
-      <AnimatePresence>
-        {contextMenu && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed z-[300] bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 w-48"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-          >
-            <button 
-              onClick={() => {
-                setEditNoteData(null);
-                resetNoteForm();
-                if (currentFolderId) setNoteFolderId(currentFolderId);
-                setShowAddNoteModal(true);
-                setContextMenu(null);
-              }}
-              className="w-full text-left px-4 py-2 hover:bg-rose-50 hover:text-rose-600 text-sm font-bold flex items-center gap-3 transition-colors"
-            >
-              <PlusCircle size={18} /> Add Quick Note
-            </button>
-            <button 
-              onClick={() => {
-                setShowAddFolderModal(true);
-                setContextMenu(null);
-              }}
-              className="w-full text-left px-4 py-2 hover:bg-rose-50 hover:text-rose-600 text-sm font-bold flex items-center gap-3 transition-colors"
-            >
-              <Folder size={18} /> New Folder
-            </button>
-            <div className="h-px bg-gray-100 my-1" />
-            <button 
-              onClick={() => {
-                setViewMode('board');
-                setContextMenu(null);
-              }}
-              className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm font-medium flex items-center gap-3 transition-colors"
-            >
-              <Grid size={18} /> All Notes
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* Global Context Menu */}
+        <AnimatePresence>
+          {contextMenu && (
+            <>
+              <div className="fixed inset-0 z-[500]" onClick={() => setContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }} />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                style={{ 
+                  left: Math.min(contextMenu.x, window.innerWidth - 260), 
+                  top: Math.min(contextMenu.y, window.innerHeight - 400) 
+                }}
+                className="fixed z-[501] w-64 bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white p-2 overflow-hidden"
+              >
+                {contextMenu.type === 'board' ? (
+                  <div className="space-y-1">
+                    <div className="p-3 border-b border-gray-50 mb-1">
+                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Board Actions</h4>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setEditNoteData(null);
+                        resetNoteForm();
+                        if (currentFolderId) setNoteFolderId(currentFolderId);
+                        setIsQuickNote(true);
+                        setShowAddNoteModal(true);
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-purple-50 hover:text-purple-600 text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
+                    >
+                      <PlusCircle size={18} /> Add Quick Note
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setShowAddFolderModal(true);
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-purple-50 hover:text-purple-600 text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
+                    >
+                      <Folder size={18} /> New Folder
+                    </button>
+                    <div className="h-px bg-gray-100 my-1 mx-2" />
+                    <button 
+                      onClick={() => {
+                        setViewMode('board');
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm font-medium flex items-center gap-3 transition-all rounded-2xl"
+                    >
+                      <Grid size={18} /> All Notes
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="p-3 border-b border-gray-50 mb-1">
+                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Note Customization</h4>
+                    </div>
+                    
+                    <div className="px-3 py-2">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">Palette</span>
+                      <div className="grid grid-cols-5 gap-2">
+                        {PASTEL_COLORS.map(c => (
+                          <button
+                            key={c.value}
+                            onClick={() => {
+                              if (contextMenu.noteId) handleUpdateNote(contextMenu.noteId, { color: c.value });
+                              setContextMenu(null);
+                            }}
+                            className="w-8 h-8 rounded-full border-2 border-white shadow-sm hover:scale-125 transition-transform ring-1 ring-gray-100"
+                            style={{ backgroundColor: c.value || '#FFFFFF' }}
+                            title={c.name}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="px-3 py-2 border-t border-gray-50">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">Display Size</span>
+                      <div className="flex gap-2">
+                        {(['sm', 'md', 'lg'] as const).map(s => (
+                          <button
+                            key={s}
+                            onClick={() => {
+                              if (contextMenu.noteId) handleUpdateNote(contextMenu.noteId, { size: s });
+                              setContextMenu(null);
+                            }}
+                            className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold transition-all ${notes.find(n => n.id === contextMenu.noteId)?.size === s ? 'bg-purple-500 text-white shadow-lg shadow-purple-200' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                          >
+                            {s.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-1 border-t border-gray-50">
+                      <button 
+                        onClick={() => {
+                          const note = notes.find(n => n.id === contextMenu.noteId);
+                          if (note) handlePinNote(note.id, !note.isPinned);
+                          setContextMenu(null);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center gap-3 transition-all rounded-2xl"
+                      >
+                        <Pin size={16} className={notes.find(n => n.id === contextMenu.noteId)?.isPinned ? 'fill-current' : ''} />
+                        {notes.find(n => n.id === contextMenu.noteId)?.isPinned ? 'Unpin Note' : 'Pin Note'}
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const note = notes.find(n => n.id === contextMenu.noteId);
+                          if (note) toggleArchive(note);
+                          setContextMenu(null);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center gap-3 transition-all rounded-2xl"
+                      >
+                        <Archive size={16} />
+                        Archive Note
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (contextMenu.noteId) deleteNote(contextMenu.noteId);
+                          setContextMenu(null);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm font-medium text-rose-500 hover:bg-rose-50 flex items-center gap-3 transition-all rounded-2xl"
+                      >
+                        <Trash2 size={16} />
+                        Delete Note
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
       {/* Floating Action Button - Mobile */}
       {isAdmin && (
         <button 
-          onClick={() => { setEditNoteData(null); resetNoteForm(); setShowAddNoteModal(true); }}
+          onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
           className="fixed bottom-8 right-8 md:hidden w-16 h-16 bg-purple-500 text-white rounded-full shadow-2xl flex items-center justify-center z-40 hover:scale-110 transition-transform active:scale-95"
         >
           <Plus size={32} />
@@ -3192,38 +3679,38 @@ function SettingsModal({
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className="relative bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            className={`relative ${localSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]`}
           >
-            <div className="p-6 border-b flex items-center justify-between bg-gray-50">
+            <div className={`p-6 border-b flex items-center justify-between ${localSettings.theme === 'dark' ? 'bg-gray-800/40' : 'bg-gray-50/40'}`}>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 text-purple-600 rounded-xl">
+                <div className="p-2 bg-primary/10 text-primary rounded-xl">
                   <Settings size={24} />
                 </div>
                 <h2 className="text-2xl font-bold">Settings</h2>
               </div>
-              <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+              <button onClick={onClose} className="p-2 hover:bg-gray-200/50 rounded-full transition-colors">
                 <X size={24} />
               </button>
             </div>
 
             <div className="flex flex-1 overflow-hidden">
               {/* Sidebar Tabs */}
-              <div className="w-48 border-r bg-gray-50/50 p-4 space-y-1">
+              <div className={`w-48 border-r p-4 space-y-1 ${localSettings.theme === 'dark' ? 'bg-gray-800/20' : 'bg-gray-50/20'}`}>
                 <button 
                   onClick={() => setActiveTab('general')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'general' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'general' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
                 >
                   <Settings size={18} /> General
                 </button>
                 <button 
                   onClick={() => setActiveTab('appearance')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'appearance' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'appearance' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
                 >
                   <Palette size={18} /> Appearance
                 </button>
                 <button 
                   onClick={() => setActiveTab('statuses')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'statuses' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'statuses' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
                 >
                   <Layout size={18} /> Statuses
                 </button>
@@ -3321,6 +3808,32 @@ function SettingsModal({
 
                 {activeTab === 'appearance' && (
                   <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <section className="space-y-4">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">App Theme</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {(['light', 'dark', 'glass', 'minimal'] as const).map(t => (
+                          <button
+                            key={t}
+                            onClick={() => setLocalSettings({ ...localSettings, theme: t })}
+                            className={`p-4 rounded-2xl border-2 transition-all text-center capitalize font-bold ${localSettings.theme === t ? 'border-purple-500 bg-purple-50 text-purple-600' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="space-y-4">
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Board Background (Global)</h3>
+                      <input 
+                        type="text" 
+                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all font-bold"
+                        value={localSettings.boardTheme}
+                        onChange={(e) => setLocalSettings({ ...localSettings, boardTheme: e.target.value })}
+                        placeholder="#F9F7FF or linear-gradient(...) or image URL"
+                      />
+                    </section>
+
                     <section className="space-y-4">
                       <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Typography & Layout</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3432,7 +3945,7 @@ function SettingsModal({
               </div>
             </div>
 
-            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+            <div className={`p-6 border-t flex justify-end gap-3 ${localSettings.theme === 'dark' ? 'bg-gray-800/40' : 'bg-gray-50/40'}`}>
               <button 
                 onClick={onClose}
                 className="px-6 py-3 bg-white border border-gray-300 rounded-2xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
@@ -3441,7 +3954,7 @@ function SettingsModal({
               </button>
               <button 
                 onClick={() => onSave(localStatuses, localSettings)}
-                className="px-8 py-3 bg-purple-500 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                className="px-8 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all"
               >
                 Save Changes
               </button>
