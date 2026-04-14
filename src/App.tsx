@@ -47,6 +47,7 @@ import {
   Archive,
   Star,
   Clock,
+  Copy,
   MoreVertical,
   MoreHorizontal,
   Filter,
@@ -237,7 +238,7 @@ interface FolderType {
 }
 
 // Note Card Component for reuse
-function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, onToggleCollapse, onPopout, statuses, viewMode, onClick, userSettings, onContextMenu }: { 
+const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, onToggleCollapse, onPopout, statuses, viewMode, onClick, userSettings, onContextMenu }: { 
   note: Note, 
   isAdmin: boolean, 
   onEdit: () => void, 
@@ -256,7 +257,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
   userSettings: UserSettings,
   onContextMenu: (x: number, y: number, noteId: string) => void,
   key?: string
-}) {
+}) => {
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
 
   const sizeClasses = {
@@ -307,9 +308,9 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
           </div>
         </div>
       )}
-      <div className="p-3 flex-1 flex flex-col">
+      <div className="p-2.5 flex-1 flex flex-col">
         {!note.imageUrl && (
-          <div className="mb-1 flex justify-between items-center">
+          <div className="mb-0.5 flex justify-between items-center">
             <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider text-white" style={{ backgroundColor: currentStatus.color }}>
               {currentStatus.label}
             </span>
@@ -441,7 +442,7 @@ function NoteCard({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onSt
       </div>
     </motion.div>
   );
-}
+});
 
 export default function App() {
   const [error, setError] = useState<string | null>(null);
@@ -506,7 +507,7 @@ interface FloatingWindowProps {
   onPopout: () => void;
 }
 
-function FloatingWindow({ 
+const FloatingWindow = React.memo(({ 
   window: win, 
   note, 
   notes,
@@ -529,7 +530,7 @@ function FloatingWindow({
   onMaximize,
   openWindow,
   onPopout
-}: FloatingWindowProps) {
+}: FloatingWindowProps) => {
   const mobile = isMobile();
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
   const [zoomLevel, setZoomLevel] = useState(100);
@@ -858,9 +859,9 @@ function FloatingWindow({
       )}
     </motion.div>
   );
-}
+});
 
-function TaskSidebar({ 
+const TaskSidebar = React.memo(({ 
   isOpen, 
   onClose, 
   isPinned, 
@@ -902,7 +903,7 @@ function TaskSidebar({
   onMoveTask: (taskId: string, listId: string) => void;
   notes: Note[];
   onOpenNote: (noteId: string) => void;
-}) {
+}) => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newListName, setNewListName] = useState('');
   const [showAddList, setShowAddList] = useState(false);
@@ -1112,13 +1113,13 @@ function TaskSidebar({
         </div>
 
         {/* Task List */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           {pinnedTasks.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <h4 className="text-[10px] font-bold text-purple-500 uppercase tracking-widest flex items-center gap-2">
                 <Pin size={10} /> Pinned
               </h4>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {pinnedTasks.map(task => (
                   <TaskItem 
                     key={task.id} 
@@ -1137,7 +1138,7 @@ function TaskSidebar({
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {unpinnedTasks.map(task => (
               <TaskItem 
                 key={task.id} 
@@ -1157,7 +1158,7 @@ function TaskSidebar({
       </div>
     </motion.aside>
   );
-}
+});
 
 interface TaskItemProps {
   key?: string | number;
@@ -1171,7 +1172,7 @@ interface TaskItemProps {
   onClick?: () => void;
 }
 
-function TaskItem({ 
+const TaskItem = React.memo(({ 
   task, 
   onToggle, 
   onDelete, 
@@ -1181,7 +1182,7 @@ function TaskItem({
   note,
   onUpdate,
   onClick
-}: TaskItemProps & { onUpdate?: (id: string, data: Partial<Task>) => void }) { 
+}: TaskItemProps & { onUpdate?: (id: string, data: Partial<Task>) => void }) => { 
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
@@ -1198,7 +1199,7 @@ function TaskItem({
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`group flex items-start gap-3 p-2 rounded-2xl transition-all border ${task.isCompleted ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'} ${task.noteId ? 'cursor-pointer' : ''}`}
+      className={`group flex items-start gap-2 p-1.5 rounded-xl transition-all border ${task.isCompleted ? 'bg-gray-50 border-transparent opacity-60' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'} ${task.noteId ? 'cursor-pointer' : ''}`}
       onClick={() => task.noteId && note && onClick?.()}
     >
       <button 
@@ -1292,9 +1293,9 @@ function TaskItem({
       </div>
     </motion.div>
   );
-}
+});
 
-function CanvasView({ 
+const CanvasView = React.memo(({ 
   notes, 
   onUpdateNote, 
   onContextMenu, 
@@ -1316,7 +1317,7 @@ function CanvasView({
   onPopout: (id: string) => void,
   onAddNote: (x?: number, y?: number) => void,
   onDelete: (id: string) => void
-}) {
+}) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
@@ -1598,7 +1599,7 @@ function CanvasView({
       )}
     </div>
   );
-}
+});
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
@@ -1647,6 +1648,7 @@ function AppContent() {
   const [activeWindows, setActiveWindows] = useState<ActiveWindow[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [maxZIndex, setMaxZIndex] = useState(100);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const quillWrapperRef = useRef<HTMLDivElement>(null);
@@ -1775,7 +1777,17 @@ function AppContent() {
   const [noteColor, setNoteColor] = useState<string>('');
   const [noteAlignment, setNoteAlignment] = useState<'left' | 'center' | 'right' | 'justify'>('left');
 
-  const openWindow = (noteId: string, type: 'view' | 'edit' = 'view') => {
+  const focusWindow = useCallback((id: string) => {
+    const newZ = maxZIndex + 1;
+    setMaxZIndex(newZ);
+    setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: newZ } : w));
+  }, [maxZIndex]);
+
+  const toggleMinimizeWindow = useCallback((id: string) => {
+    setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, isMinimized: !w.isMinimized } : w));
+  }, []);
+
+  const openWindow = useCallback((noteId: string, type: 'view' | 'edit' = 'view') => {
     const isMobile = window.innerWidth < 768;
     const existing = activeWindows.find(w => w.noteId === noteId && w.type === type);
     if (existing) {
@@ -1802,20 +1814,10 @@ function AppContent() {
       zIndex: newZ
     };
     setActiveWindows(prev => [...prev, newWindow]);
-  };
+  }, [activeWindows, focusWindow, maxZIndex, toggleMinimizeWindow]);
 
   const closeWindow = (id: string) => {
     setActiveWindows(prev => prev.filter(w => w.id !== id));
-  };
-
-  const focusWindow = (id: string) => {
-    const newZ = maxZIndex + 1;
-    setMaxZIndex(newZ);
-    setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, zIndex: newZ } : w));
-  };
-
-  const toggleMinimizeWindow = (id: string) => {
-    setActiveWindows(prev => prev.map(w => w.id === id ? { ...w, isMinimized: !w.isMinimized } : w));
   };
 
   const toggleMaximizeWindow = (id: string) => {
@@ -2254,7 +2256,7 @@ function AppContent() {
     }
   };
 
-  const handleUpdateNote = async (id: string, data: Partial<Note>) => {
+  const handleUpdateNote = useCallback(async (id: string, data: Partial<Note>) => {
     if (!isAdmin) return;
     const path = `artifacts/${appId}/public/data/notes/${id}`;
     try {
@@ -2283,7 +2285,7 @@ function AppContent() {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
-  };
+  }, [isAdmin, appId, notes, user?.uid, addToHistory]);
 
   const handlePinNote = async (id: string, isPinned: boolean) => {
     handleUpdateNote(id, { isPinned });
@@ -2307,6 +2309,24 @@ function AppContent() {
     await batch.commit();
   };
 
+
+  const handleDuplicateNote = async (note: Note) => {
+    if (!isAdmin || !user) return;
+    const path = `artifacts/${appId}/public/data/notes`;
+    try {
+      const { id, createdAt, updatedAt, ...rest } = note;
+      const docRef = await addDoc(collection(db, path), {
+        ...rest,
+        title: `${rest.title} (Copy)`,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        uid: user.uid
+      });
+      addToHistory({ type: 'note', action: 'create', id: docRef.id, data: rest });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, path);
+    }
+  };
 
   const resetNoteForm = () => {
     setNoteTitle('');
@@ -2573,6 +2593,17 @@ function AppContent() {
               </div>
               <h1 className="text-xl font-bold tracking-tight hidden sm:block truncate text-gray-800">Notes For Myself</h1>
             </div>
+
+            {/* Mobile Search Toggle */}
+            <div className="flex items-center gap-2 md:hidden">
+              <button 
+                onClick={() => setShowMobileSearch(!showMobileSearch)}
+                className={`p-2 rounded-xl transition-all ${showMobileSearch ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}
+              >
+                <Search size={22} />
+              </button>
+            </div>
+
             <div className="hidden md:flex items-center gap-1 ml-2 border-l pl-4 border-gray-100">
               <button 
                 onClick={handleUndo}
@@ -2615,69 +2646,87 @@ function AppContent() {
             </button>
 
             {showFilterDropdown && (
-              <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50">
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Global Search</h4>
-                    <button 
-                      onClick={() => setSearchEverywhere(!searchEverywhere)}
-                      className={`w-10 h-5 rounded-full transition-all relative ${searchEverywhere ? 'bg-purple-500' : 'bg-gray-200'}`}
-                    >
-                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${searchEverywhere ? 'right-1' : 'left-1'}`} />
-                    </button>
-                  </div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">View Mode</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      onClick={() => { setViewMode('board'); setShowFilterDropdown(false); }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'board' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-                    >
-                      <Grid size={14} /> Board
-                    </button>
-                    <button 
-                      onClick={() => { setViewMode('favorites'); setShowFilterDropdown(false); }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'favorites' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-                    >
-                      <Star size={14} /> Favorites
-                    </button>
-                    <button 
-                      onClick={() => { setViewMode('due'); setShowFilterDropdown(false); }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'due' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-                    >
-                      <Clock size={14} /> Upcoming
-                    </button>
-                    <button 
-                      onClick={() => { setViewMode('archive'); setShowFilterDropdown(false); }}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'archive' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-                    >
-                      <Archive size={14} /> Archive
-                    </button>
-                  </div>
-                </div>
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
+                <motion.div 
+                  initial={isMobile() ? { y: '100%' } : { opacity: 0, y: 10, scale: 0.95 }}
+                  animate={isMobile() ? { y: 0 } : { opacity: 1, y: 0, scale: 1 }}
+                  exit={isMobile() ? { y: '100%' } : { opacity: 0, y: 10, scale: 0.95 }}
+                  className={`${isMobile() ? 'fixed bottom-0 left-0 right-0 rounded-t-[3rem] p-8 pb-12 max-h-[80vh] overflow-y-auto' : 'absolute top-full right-0 mt-2 p-6 rounded-3xl w-80 shadow-2xl'} bg-white/95 backdrop-blur-md border border-purple-50 z-50`}
+                >
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Global Search</h4>
+                        <button 
+                          onClick={() => setSearchEverywhere(!searchEverywhere)}
+                          className={`w-10 h-5 rounded-full transition-all relative ${searchEverywhere ? 'bg-purple-500' : 'bg-gray-200'}`}
+                        >
+                          <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${searchEverywhere ? 'right-1' : 'left-1'}`} />
+                        </button>
+                      </div>
+                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">View Mode</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button 
+                          onClick={() => { setViewMode('board'); setShowFilterDropdown(false); }}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'board' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                        >
+                          <Grid size={14} /> Board
+                        </button>
+                        <button 
+                          onClick={() => { setViewMode('favorites'); setShowFilterDropdown(false); }}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'favorites' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                        >
+                          <Star size={14} /> Favorites
+                        </button>
+                        <button 
+                          onClick={() => { setViewMode('due'); setShowFilterDropdown(false); }}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'due' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                        >
+                          <Clock size={14} /> Upcoming
+                        </button>
+                        <button 
+                          onClick={() => { setViewMode('archive'); setShowFilterDropdown(false); }}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'archive' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                        >
+                          <Archive size={14} /> Archive
+                        </button>
+                      </div>
+                    </div>
 
-                <div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Filter by Status</h4>
-                  <div className="space-y-1">
-                    <button 
-                      onClick={() => { setStatusFilter('all'); setShowFilterDropdown(false); }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === 'all' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}
-                    >
-                      <span>All Statuses</span>
-                      {statusFilter === 'all' && <CheckCircle2 size={14} />}
-                    </button>
-                    {statuses.filter(s => s.isVisible).map((s) => (
+                    <div>
+                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Filter by Status</h4>
+                      <div className="space-y-1">
+                        <button 
+                          onClick={() => { setStatusFilter('all'); setShowFilterDropdown(false); }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === 'all' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}
+                        >
+                          <span>All Statuses</span>
+                          {statusFilter === 'all' && <CheckCircle2 size={14} />}
+                        </button>
+                        {statuses.filter(s => s.isVisible).map((s) => (
+                          <button 
+                            key={s.id}
+                            onClick={() => { setStatusFilter(s.id); setShowFilterDropdown(false); }}
+                            className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === s.id ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}
+                          >
+                            <span>{s.label}</span>
+                            {statusFilter === s.id && <CheckCircle2 size={14} />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {isMobile() && (
                       <button 
-                        key={s.id}
-                        onClick={() => { setStatusFilter(s.id); setShowFilterDropdown(false); }}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === s.id ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}
+                        onClick={() => setShowFilterDropdown(false)}
+                        className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold active:scale-95 transition-transform"
                       >
-                        <span>{s.label}</span>
-                        {statusFilter === s.id && <CheckCircle2 size={14} />}
+                        Close
                       </button>
-                    ))}
+                    )}
                   </div>
-                </div>
-              </div>
+                </motion.div>
+              </>
             )}
           </div>
 
@@ -2718,7 +2767,7 @@ function AppContent() {
                 </AnimatePresence>
               </div>
             )}
-            <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-full border border-gray-100">
+            <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-full border border-gray-100 hidden sm:flex">
               <button 
                 onClick={() => handleToggleAllCollapse(true)}
                 className="p-1.5 hover:bg-primary/10 rounded-full text-gray-400 hover:text-primary transition-colors"
@@ -2771,16 +2820,16 @@ function AppContent() {
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setShowDensityPopover(false)} />
                       <motion.div 
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute top-full right-0 mt-2 p-4 bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-purple-50 z-50 min-w-[220px]"
+                        initial={isMobile() ? { y: '100%' } : { opacity: 0, y: 10, scale: 0.95 }}
+                        animate={isMobile() ? { y: 0 } : { opacity: 1, y: 0, scale: 1 }}
+                        exit={isMobile() ? { y: '100%' } : { opacity: 0, y: 10, scale: 0.95 }}
+                        className={`${isMobile() ? 'fixed bottom-0 left-0 right-0 rounded-t-[3rem] p-8 pb-12' : 'absolute top-full right-0 mt-2 p-4 rounded-3xl min-w-[220px]'} bg-white/95 backdrop-blur-md shadow-2xl border border-purple-50 z-50`}
                       >
-                        <div className="flex items-center justify-between mb-4 px-1">
+                        <div className="flex items-center justify-between mb-6 px-1">
                           <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Grid Density</span>
-                          <span className="text-xs font-bold text-purple-500 bg-purple-50 px-3 py-1 rounded-full">{userSettings.gridColumns} Columns</span>
+                          <span className="text-xs font-bold text-purple-500 bg-purple-50 px-4 py-1.5 rounded-full">{userSettings.gridColumns} Columns</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-3 gap-3">
                           {[1, 2, 3, 4, 5, 6].map(cols => (
                             <button 
                               key={cols}
@@ -2788,12 +2837,20 @@ function AppContent() {
                                 updateUserSettings({ gridColumns: cols });
                                 setShowDensityPopover(false);
                               }}
-                              className={`h-12 flex items-center justify-center rounded-2xl text-sm font-bold transition-all ${userSettings.gridColumns === cols ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-gray-400 hover:bg-purple-50 hover:text-purple-500'}`}
+                              className={`h-14 flex items-center justify-center rounded-2xl text-base font-bold transition-all ${userSettings.gridColumns === cols ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-gray-400 hover:bg-purple-50 hover:text-purple-500'}`}
                             >
                               {cols}
                             </button>
                           ))}
                         </div>
+                        {isMobile() && (
+                          <button 
+                            onClick={() => setShowDensityPopover(false)}
+                            className="w-full mt-8 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold active:scale-95 transition-transform"
+                          >
+                            Close
+                          </button>
+                        )}
                       </motion.div>
                     </>
                   )}
@@ -2823,14 +2880,14 @@ function AppContent() {
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => setIsTaskSidebarOpen(!isTaskSidebarOpen)}
-                className={`p-2 rounded-full transition-colors ${isTaskSidebarOpen ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-primary/10 text-gray-600'}`}
+                className={`p-2 rounded-full transition-colors hidden sm:flex ${isTaskSidebarOpen ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-primary/10 text-gray-600'}`}
                 title="Tasks"
               >
                 <CheckSquare size={20} />
               </button>
               <button 
                 onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
-                className="bg-primary text-white p-2 sm:px-4 sm:py-2 rounded-full text-sm font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center gap-2 group"
+                className="bg-primary text-white p-2 sm:px-4 sm:py-2 rounded-full text-sm font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center gap-2 group hidden sm:flex"
                 title="New Note"
               >
                 <Plus size={18} className="group-hover:rotate-90 transition-transform" /> 
@@ -2838,22 +2895,59 @@ function AppContent() {
               </button>
               <button 
                 onClick={() => setShowSettingsModal(true)}
-                className="p-2 hover:bg-primary/10 rounded-full text-gray-600 transition-colors"
+                className="p-2 hover:bg-primary/10 rounded-full text-gray-600 transition-colors hidden sm:flex"
                 title="Settings"
               >
                 <Settings size={20} />
               </button>
               <button 
                 onClick={handleLogout}
-                className="p-2 hover:bg-purple-50 rounded-full text-gray-600 transition-colors"
+                className="p-2 hover:bg-purple-50 rounded-full text-gray-600 transition-colors hidden sm:flex"
                 title="Logout"
               >
                 <LogOut size={20} />
               </button>
+              {isMobile() && (
+                <button 
+                  onClick={() => setShowSettingsModal(true)}
+                  className="p-2 text-gray-600"
+                >
+                  <Settings size={24} />
+                </button>
+              )}
             </div>
           </div>
         </div>
       </header>
+
+      {/* Mobile Search Overlay */}
+      <AnimatePresence>
+        {isMobile() && showMobileSearch && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-20 left-0 right-0 p-4 bg-white/95 backdrop-blur-xl border-b border-purple-100 z-[49] shadow-xl"
+          >
+            <div className="relative flex items-center bg-gray-50 rounded-2xl border border-gray-200 px-4 py-3">
+              <Search size={18} className="text-gray-400 mr-3" />
+              <input 
+                autoFocus
+                type="text" 
+                placeholder="Search notes, tags..."
+                className="bg-transparent border-none focus:outline-none w-full text-sm font-medium"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="p-1 text-gray-400 hover:text-gray-600">
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex w-full">
         {/* Sidebar - Desktop */}
@@ -3061,10 +3155,10 @@ function AppContent() {
               onDelete={deleteNote}
             />
           ) : viewMode === 'workflow' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start">
               {statuses.filter(s => s.isVisible).map((status) => (
-                <div key={status.id} className="bg-gray-100/50 rounded-3xl p-4 min-h-[600px] flex flex-col gap-4">
-                  <div className="flex items-center justify-between px-2 mb-2">
+                <div key={status.id} className="bg-gray-100/50 rounded-3xl p-3 min-h-[600px] flex flex-col gap-3">
+                  <div className="flex items-center justify-between px-2 mb-1">
                     <h3 className="font-bold text-sm uppercase tracking-widest text-gray-500 flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full" style={{ backgroundColor: status.color }} />
                       {status.label}
@@ -3074,7 +3168,7 @@ function AppContent() {
                     </span>
                   </div>
                   
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3">
                     {sortedNotes.filter(n => n.status === status.id).slice(0, userSettings.notesPerColumn).map((note) => (
                       <NoteCard 
                         key={note.id} 
@@ -3114,7 +3208,7 @@ function AppContent() {
             </div>
           ) : (
             <div 
-              className="grid gap-4 auto-rows-min grid-flow-dense"
+              className="grid gap-3 auto-rows-min grid-flow-dense"
               style={{ 
                 gridTemplateColumns: `repeat(${isMobile() ? 1 : userSettings.gridColumns}, minmax(0, 1fr))` 
               }}
@@ -3632,6 +3726,60 @@ function AppContent() {
         )}
       </AnimatePresence>
 
+        {/* Mobile Navigation Bar */}
+        {isMobile() && (
+          <div className={`fixed bottom-0 left-0 right-0 ${userSettings.theme === 'dark' ? 'bg-gray-900/80 border-gray-800' : 'bg-white/80 border-gray-100'} backdrop-blur-xl border-t px-6 py-3 flex items-center justify-between z-[100] safe-area-bottom`}>
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className={`p-3 rounded-2xl transition-all ${isSidebarOpen ? 'bg-primary text-white shadow-lg' : 'text-gray-400'}`}
+            >
+              <Menu size={24} />
+            </button>
+            <button 
+              onClick={() => setIsTaskSidebarOpen(!isTaskSidebarOpen)}
+              className={`p-3 rounded-2xl transition-all ${isTaskSidebarOpen ? 'bg-primary text-white shadow-lg' : 'text-gray-400'}`}
+            >
+              <CheckSquare size={24} />
+            </button>
+            <button 
+              onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
+              className={`bg-primary text-white p-4 rounded-full shadow-xl shadow-primary/30 -mt-8 border-4 ${userSettings.theme === 'dark' ? 'border-gray-900' : 'border-white'} active:scale-90 transition-transform`}
+            >
+              <Plus size={28} />
+            </button>
+            <button 
+              onClick={() => {
+                if (viewMode === 'canvas') {
+                  setViewMode('board');
+                } else {
+                  setViewMode('canvas');
+                }
+              }}
+              className={`p-3 rounded-2xl transition-all ${viewMode === 'canvas' ? 'bg-primary text-white shadow-lg' : 'text-gray-400'}`}
+            >
+              <Layout size={24} />
+            </button>
+            <button 
+              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+              className={`p-3 rounded-2xl transition-all ${showFilterDropdown ? 'bg-primary text-white shadow-lg' : 'text-gray-400'}`}
+            >
+              <Filter size={24} />
+            </button>
+            <button 
+              onClick={() => setShowDensityPopover(!showDensityPopover)}
+              className={`p-3 rounded-2xl transition-all ${showDensityPopover ? 'bg-primary text-white shadow-lg' : 'text-gray-400'}`}
+            >
+              <LayoutGrid size={24} />
+            </button>
+            <button 
+              onClick={() => setShowSettingsModal(true)}
+              className="p-3 text-gray-400"
+            >
+              <Settings size={24} />
+            </button>
+          </div>
+        )}
+
         {/* Global Context Menu */}
         <AnimatePresence>
           {contextMenu && (
@@ -3673,6 +3821,26 @@ function AppContent() {
                       className="w-full text-left px-4 py-3 hover:bg-purple-50 hover:text-purple-600 text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
                     >
                       <Folder size={18} /> New Folder
+                    </button>
+                    <button 
+                      onClick={() => {
+                        handleUndo();
+                        setContextMenu(null);
+                      }}
+                      disabled={historyIndex < 0}
+                      className={`w-full text-left px-4 py-3 text-sm font-medium flex items-center gap-3 transition-all rounded-2xl ${historyIndex < 0 ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-purple-50 hover:text-purple-600 text-gray-700'}`}
+                    >
+                      <Undo2 size={18} /> Undo Action
+                    </button>
+                    <button 
+                      onClick={() => {
+                        handleRedo();
+                        setContextMenu(null);
+                      }}
+                      disabled={historyIndex >= history.length - 1}
+                      className={`w-full text-left px-4 py-3 text-sm font-medium flex items-center gap-3 transition-all rounded-2xl ${historyIndex >= history.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-purple-50 hover:text-purple-600 text-gray-700'}`}
+                    >
+                      <Redo2 size={18} /> Redo Action
                     </button>
                     <div className="h-px bg-gray-100 my-1 mx-2" />
                     <button 
@@ -3728,6 +3896,48 @@ function AppContent() {
                     </div>
 
                     <div className="pt-1 border-t border-gray-50">
+                      <button 
+                        onClick={() => {
+                          const note = notes.find(n => n.id === contextMenu.noteId);
+                          if (note) {
+                            openWindow(note.id);
+                          }
+                          setContextMenu(null);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm font-bold text-purple-600 hover:bg-purple-50 flex items-center gap-3 transition-all rounded-2xl"
+                      >
+                        <Maximize2 size={16} /> Open / Edit
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (contextMenu.noteId) handlePopout(contextMenu.noteId);
+                          setContextMenu(null);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center gap-3 transition-all rounded-2xl"
+                      >
+                        <ExternalLink size={16} /> Pop-out Note
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const note = notes.find(n => n.id === contextMenu.noteId);
+                          if (note) handleDuplicateNote(note);
+                          setContextMenu(null);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center gap-3 transition-all rounded-2xl"
+                      >
+                        <Copy size={16} /> Duplicate Note
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const note = notes.find(n => n.id === contextMenu.noteId);
+                          if (note) toggleFavorite(note);
+                          setContextMenu(null);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center gap-3 transition-all rounded-2xl"
+                      >
+                        <Star size={16} className={notes.find(n => n.id === contextMenu.noteId)?.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''} />
+                        {notes.find(n => n.id === contextMenu.noteId)?.isFavorite ? 'Unfavorite' : 'Favorite'}
+                      </button>
                       <button 
                         onClick={() => {
                           const note = notes.find(n => n.id === contextMenu.noteId);
