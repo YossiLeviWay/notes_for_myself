@@ -578,12 +578,20 @@ const FloatingWindow = React.memo(({
 
   if (win.isMinimized) return null;
 
-  const windowStyle = win.isMaximized || mobile ? {
+  const windowStyle = win.isMaximized ? {
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     borderRadius: 0,
+    zIndex: win.zIndex,
+    position: 'fixed' as const
+  } : mobile ? {
+    width: '90vw',
+    height: '80vh',
+    left: '5vw',
+    top: '10vh',
+    borderRadius: '2.5rem',
     zIndex: win.zIndex,
     position: 'fixed' as const
   } : {
@@ -2357,10 +2365,10 @@ function AppContent() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
                 <motion.div 
-                  initial={isMobile() ? { y: '100%' } : { opacity: 0, y: 10, scale: 0.95 }}
-                  animate={isMobile() ? { y: 0 } : { opacity: 1, y: 0, scale: 1 }}
-                  exit={isMobile() ? { y: '100%' } : { opacity: 0, y: 10, scale: 0.95 }}
-                  className={`${isMobile() ? 'fixed bottom-0 left-0 right-0 rounded-t-[3rem] p-8 pb-12 max-h-[80vh] overflow-y-auto' : 'absolute top-full right-0 mt-2 p-6 rounded-3xl w-80 shadow-2xl'} bg-white/95 backdrop-blur-md border border-purple-50 z-50`}
+                  initial={isMobile() ? { opacity: 0, scale: 0.9, x: '-50%', y: '-40%' } : { opacity: 0, y: 10, scale: 0.95 }}
+                  animate={isMobile() ? { opacity: 1, scale: 1, x: '-50%', y: '-50%' } : { opacity: 1, y: 0, scale: 1 }}
+                  exit={isMobile() ? { opacity: 0, scale: 0.9, x: '-50%', y: '-40%' } : { opacity: 0, y: 10, scale: 0.95 }}
+                  className={`${isMobile() ? 'fixed top-1/2 left-1/2 w-[92%] max-w-sm rounded-[2.5rem] p-8 max-h-[80vh] overflow-y-auto' : 'absolute top-full right-0 mt-2 p-6 rounded-3xl w-80 shadow-2xl'} bg-white/95 backdrop-blur-md border border-purple-50 z-50`}
                 >
                   <div className="space-y-6">
                     <div>
@@ -2528,10 +2536,10 @@ function AppContent() {
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setShowDensityPopover(false)} />
                       <motion.div 
-                        initial={isMobile() ? { y: '100%' } : { opacity: 0, y: 10, scale: 0.95 }}
-                        animate={isMobile() ? { y: 0 } : { opacity: 1, y: 0, scale: 1 }}
-                        exit={isMobile() ? { y: '100%' } : { opacity: 0, y: 10, scale: 0.95 }}
-                        className={`${isMobile() ? 'fixed bottom-0 left-0 right-0 rounded-t-[3rem] p-8 pb-12' : 'absolute top-full right-0 mt-2 p-4 rounded-3xl min-w-[220px]'} bg-white/95 backdrop-blur-md shadow-2xl border border-purple-50 z-50`}
+                        initial={isMobile() ? { opacity: 0, scale: 0.9, x: '-50%', y: '-40%' } : { opacity: 0, y: 10, scale: 0.95 }}
+                        animate={isMobile() ? { opacity: 1, scale: 1, x: '-50%', y: '-50%' } : { opacity: 1, y: 0, scale: 1 }}
+                        exit={isMobile() ? { opacity: 0, scale: 0.9, x: '-50%', y: '-40%' } : { opacity: 0, y: 10, scale: 0.95 }}
+                        className={`${isMobile() ? 'fixed top-1/2 left-1/2 w-[92%] max-w-sm rounded-[2.5rem] p-8' : 'absolute top-full right-0 mt-2 p-4 rounded-3xl min-w-[220px]'} bg-white/95 backdrop-blur-md shadow-2xl border border-purple-50 z-50`}
                       >
                         <div className="flex items-center justify-between mb-6 px-1">
                           <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Grid Density</span>
@@ -3090,7 +3098,7 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full ${isQuickNote ? 'max-w-xl' : 'max-w-5xl'} rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-auto md:max-h-[90vh] border border-white/20`}
+              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-[92%] ${isQuickNote ? 'max-w-xl' : 'max-w-5xl'} rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[80vh] md:h-auto md:max-h-[90vh] border border-white/20`}
             >
               <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/5">
                 <div>
@@ -3292,7 +3300,7 @@ function AppContent() {
         )}
 
         {showAddFolderModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-8">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3304,7 +3312,7 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 border border-white/20`}
+              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-[92%] max-w-md rounded-[2.5rem] shadow-2xl p-8 border border-white/20`}
             >
               <h2 className="text-2xl font-bold mb-6">{editFolderData ? 'Edit Folder' : 'New Folder'}</h2>
               <div className="space-y-4">
@@ -3869,7 +3877,7 @@ function SettingsModal({
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className={`relative ${localSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-auto md:max-h-[90vh] border border-white/20`}
+            className={`relative ${localSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-[92%] max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[80vh] md:h-auto md:max-h-[90vh] border border-white/20`}
           >
             <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/5">
               <div className="flex items-center gap-4">
