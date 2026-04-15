@@ -312,21 +312,21 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
           </div>
         </div>
       )}
-      <div className="p-2.5 flex-1 flex flex-col">
+      <div className="p-4 flex-1 flex flex-col">
         {!note.imageUrl && (
-          <div className="mb-0.5 flex justify-between items-center">
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider text-white" style={{ backgroundColor: currentStatus.color }}>
+          <div className="mb-2 flex justify-between items-center">
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-sm" style={{ backgroundColor: currentStatus.color }}>
               {currentStatus.label}
             </span>
             {note.isPinned && (
-              <span className="text-purple-500">
-                <Pin size={12} />
+              <span className="text-primary">
+                <Pin size={14} fill="currentColor" />
               </span>
             )}
           </div>
         )}
-        <div className="flex justify-between items-start mb-1 gap-2">
-          <h3 className={`font-bold text-gray-900 line-clamp-2 group-hover:text-purple-500 transition-colors flex-1 ${note.size === 'lg' ? 'text-xl' : 'text-base'}`}>{note.title}</h3>
+        <div className="flex justify-between items-start mb-2 gap-3">
+          <h3 className={`font-display font-bold text-gray-900 line-clamp-2 group-hover:text-primary transition-colors flex-1 ${note.size === 'lg' ? 'text-2xl' : 'text-lg'}`}>{note.title}</h3>
           <div className="flex items-center gap-1 shrink-0">
             <button 
               onClick={(e) => { e.stopPropagation(); onPopout(); }}
@@ -2286,7 +2286,7 @@ function AppContent() {
       }}
     >
       {/* Header */}
-      <header className={`backdrop-blur-xl border-b sticky top-0 z-[50] px-4 md:px-8 py-4 ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'}`}>
+      <header className={`backdrop-blur-xl border-b sticky top-0 z-[50] px-4 md:px-12 py-4 md:py-6 ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
@@ -2799,7 +2799,7 @@ function AppContent() {
 
         {/* Main Content */}
         <main 
-          className="flex-1 p-4 md:p-8 relative"
+          className="flex-1 p-6 md:p-12 relative max-w-screen-2xl mx-auto w-full"
           onContextMenu={(e) => {
             if (isAdmin) {
               e.preventDefault();
@@ -3009,7 +3009,7 @@ function AppContent() {
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              className="relative bg-white w-80 h-full shadow-2xl flex flex-col"
+              className="relative bg-white w-[85%] max-w-[320px] h-full shadow-2xl flex flex-col"
             >
               <div className="p-6 border-b flex justify-between items-center">
                 <h2 className="font-bold text-xl">Menu</h2>
@@ -3062,6 +3062,19 @@ function AppContent() {
         )}
       </AnimatePresence>
 
+      {/* Mobile Floating Action Button */}
+      {isMobile() && (
+        <motion.button
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
+          className="fixed bottom-8 right-8 w-16 h-16 bg-primary text-white rounded-[1.5rem] shadow-2xl z-[60] flex items-center justify-center border-4 border-white/20 backdrop-blur-sm"
+        >
+          <Plus size={32} />
+        </motion.button>
+      )}
+
       {/* Modals */}
       <AnimatePresence>
         {showAddNoteModal && (
@@ -3077,7 +3090,7 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full ${isQuickNote ? 'max-w-xl' : 'max-w-5xl'} rounded-none md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-full md:h-auto md:max-h-[90vh] border border-white/20`}
+              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full ${isQuickNote ? 'max-w-xl' : 'max-w-5xl'} rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-auto md:max-h-[90vh] border border-white/20`}
             >
               <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/5">
                 <div>
@@ -3279,7 +3292,7 @@ function AppContent() {
         )}
 
         {showAddFolderModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3291,7 +3304,7 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full max-w-md rounded-3xl shadow-2xl p-8`}
+              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 border border-white/20`}
             >
               <h2 className="text-2xl font-bold mb-6">{editFolderData ? 'Edit Folder' : 'New Folder'}</h2>
               <div className="space-y-4">
@@ -3672,16 +3685,6 @@ function AppContent() {
           )}
         </AnimatePresence>
 
-      {/* Floating Action Button - Mobile */}
-      {isAdmin && (
-        <button 
-          onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
-          className="fixed bottom-8 right-8 md:hidden w-16 h-16 bg-purple-500 text-white rounded-full shadow-2xl flex items-center justify-center z-40 hover:scale-110 transition-transform active:scale-95"
-        >
-          <Plus size={32} />
-        </button>
-      )}
-
       {/* Custom Styles for Quill */}
       <style>{`
         .ql-container {
@@ -3866,38 +3869,41 @@ function SettingsModal({
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className={`relative ${localSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]`}
+            className={`relative ${localSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-auto md:max-h-[90vh] border border-white/20`}
           >
-            <div className={`p-6 border-b flex items-center justify-between ${localSettings.theme === 'dark' ? 'bg-gray-800/40' : 'bg-gray-50/40'}`}>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 text-primary rounded-xl">
+            <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-primary/10 text-primary rounded-2xl">
                   <Settings size={24} />
                 </div>
-                <h2 className="text-2xl font-bold">Settings</h2>
+                <div>
+                  <h2 className="text-2xl font-display font-bold text-gray-900">Settings</h2>
+                  <p className="text-gray-500 text-xs mt-0.5">Customize your workspace</p>
+                </div>
               </div>
-              <button onClick={onClose} className="p-2 hover:bg-gray-200/50 rounded-full transition-colors">
-                <X size={24} />
+              <button onClick={onClose} className="p-3 hover:bg-black/5 rounded-2xl transition-all active:scale-90">
+                <X size={24} className="text-gray-400" />
               </button>
             </div>
 
-            <div className="flex flex-1 overflow-hidden">
+            <div className={`flex flex-1 overflow-hidden ${isMobile() ? 'flex-col' : ''}`}>
               {/* Sidebar Tabs */}
-              <div className={`w-48 border-r p-4 space-y-1 ${localSettings.theme === 'dark' ? 'bg-gray-800/20' : 'bg-gray-50/20'}`}>
+              <div className={`${isMobile() ? 'w-full flex overflow-x-auto border-b no-scrollbar' : 'w-56 border-r'} p-4 space-y-1 md:space-y-1 ${localSettings.theme === 'dark' ? 'bg-gray-800/20' : 'bg-gray-50/20'}`}>
                 <button 
                   onClick={() => setActiveTab('general')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'general' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all shrink-0 ${activeTab === 'general' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
                 >
                   <Settings size={18} /> General
                 </button>
                 <button 
                   onClick={() => setActiveTab('appearance')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'appearance' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all shrink-0 ${activeTab === 'appearance' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
                 >
                   <Palette size={18} /> Appearance
                 </button>
                 <button 
                   onClick={() => setActiveTab('statuses')}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'statuses' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all shrink-0 ${activeTab === 'statuses' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
                 >
                   <Layout size={18} /> Statuses
                 </button>
