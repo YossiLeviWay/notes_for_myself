@@ -163,6 +163,7 @@ interface Task {
   title: string;
   isCompleted: boolean;
   isPinned: boolean;
+  isArchived?: boolean;
   listId: string;
   noteId?: string;
   dueDate?: any;
@@ -922,8 +923,12 @@ const TaskSidebar = React.memo(({
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState('');
 
+  const [showArchive, setShowArchive] = useState(false);
+
   const activeList = taskLists.find(l => l.id === activeListId);
-  const filteredTasks = tasks.filter(t => t.listId === activeListId);
+  const filteredTasks = tasks.filter(t => t.listId === activeListId && !t.isArchived);
+  const archivedTasks = tasks.filter(t => t.listId === activeListId && t.isArchived);
+  const legacyArchivedTasks = tasks.filter(t => t.isArchived && !taskLists.some(l => l.id === t.listId));
   const pinnedTasks = filteredTasks.filter(t => t.isPinned);
   const unpinnedTasks = filteredTasks.filter(t => !t.isPinned);
 
@@ -1167,6 +1172,73 @@ const TaskSidebar = React.memo(({
             ))}
           </div>
         </div>
+
+        {/* Archive Section */}
+        {archivedTasks.length > 0 && (
+          <div className="pt-4 border-t border-gray-100">
+            <button 
+              onClick={() => setShowArchive(!showArchive)}
+              className="w-full flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-purple-500 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Archive size={10} /> Archive ({archivedTasks.length})
+              </div>
+              {showArchive ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+            </button>
+            
+            {showArchive && (
+              <div className="mt-3 space-y-1.5 opacity-60 hover:opacity-100 transition-opacity">
+                {archivedTasks.map(task => (
+                  <TaskItem 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={onToggleTask} 
+                    onDelete={onDeleteTask} 
+                    onPin={onPinTask}
+                    onMove={onMoveTask}
+                    onUpdate={onUpdateTask}
+                    taskLists={taskLists}
+                    note={notes.find(n => n.id === task.noteId)}
+                    onClick={() => task.noteId && onOpenNote(task.noteId)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* Legacy Archive Section */}
+        {legacyArchivedTasks.length > 0 && (
+          <div className="pt-4 border-t border-gray-100">
+            <button 
+              onClick={() => setShowArchive(!showArchive)}
+              className="w-full flex items-center justify-between text-[10px] font-bold text-rose-400 uppercase tracking-widest hover:text-rose-500 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <History size={10} /> Legacy Archive ({legacyArchivedTasks.length})
+              </div>
+              {showArchive ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+            </button>
+            
+            {showArchive && (
+              <div className="mt-3 space-y-1.5 opacity-60 hover:opacity-100 transition-opacity">
+                {legacyArchivedTasks.map(task => (
+                  <TaskItem 
+                    key={task.id} 
+                    task={task} 
+                    onToggle={onToggleTask} 
+                    onDelete={onDeleteTask} 
+                    onPin={onPinTask}
+                    onMove={onMoveTask}
+                    onUpdate={onUpdateTask}
+                    taskLists={taskLists}
+                    note={notes.find(n => n.id === task.noteId)}
+                    onClick={() => task.noteId && onOpenNote(task.noteId)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </motion.aside>
   );
@@ -1630,8 +1702,14 @@ function AppContent() {
       const oldTask = tasks.find(t => t.id === id);
       if (oldTask) {
         const oldData = { ...oldTask };
-        await updateDoc(doc(db, path), { isCompleted });
-        addToHistory({ type: 'task', action: 'update', id, oldData, newData: { ...oldTask, isCompleted } });
+        const updateData: any = { isCompleted };
+        if (isCompleted) {
+          updateData.isArchived = true;
+        } else {
+          updateData.isArchived = false;
+        }
+        await updateDoc(doc(db, path), updateData);
+        addToHistory({ type: 'task', action: 'update', id, oldData, newData: { ...oldTask, ...updateData } });
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
@@ -1701,6 +1779,17 @@ function AppContent() {
   const handleDeleteTaskList = async (id: string) => {
     const path = `artifacts/${appId}/public/data/taskLists/${id}`;
     try {
+      // Delete non-archived tasks in this list
+      const listTasks = tasks.filter(t => t.listId === id);
+      const batch = writeBatch(db);
+      listTasks.forEach(task => {
+        if (!task.isArchived) {
+          const taskPath = `artifacts/${appId}/public/data/tasks/${task.id}`;
+          batch.delete(doc(db, taskPath));
+        }
+      });
+      await batch.commit();
+
       await deleteDoc(doc(db, path));
       if (activeTaskListId === id) {
         setActiveTaskListId(taskLists.find(l => l.id !== id)?.id || null);
@@ -2829,41 +2918,41 @@ function AppContent() {
                   </div>
                   <span className="text-xs font-bold text-primary uppercase tracking-[0.2em]">Workspace</span>
                 </div>
-                <h2 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight">
+                <h2 className="text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight">
                   {viewMode === 'board' ? (currentFolderId ? folders.find(f => f.id === currentFolderId)?.name : 'My Notes') : 
                    viewMode === 'archive' ? 'Archive' : 
                    viewMode === 'favorites' ? 'Favorites' : 
                    viewMode === 'workflow' ? 'Workflow Board' : 'Upcoming Due Dates'}
                 </h2>
-                <div className="flex items-center gap-4 mt-4">
-                  <p className="text-gray-500 font-medium flex items-center gap-2">
+                <div className="flex items-center gap-4 mt-2">
+                  <p className="text-gray-500 font-bold text-xs flex items-center gap-2">
                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                     {filteredNotes.length} active notes
                   </p>
-                  <div className="w-px h-4 bg-gray-200" />
-                  <p className="text-gray-400 text-sm">{format(new Date(), 'EEEE, MMMM do')}</p>
+                  <div className="w-px h-3 bg-gray-200" />
+                  <p className="text-gray-400 text-xs font-bold">{format(new Date(), 'EEEE, MMMM do')}</p>
                 </div>
               </div>
               
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-white/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/50 shadow-sm">
+                <div className="flex items-center gap-2 bg-white/50 backdrop-blur-md p-1 rounded-2xl border border-white/50 shadow-sm">
                   {selectedTags.map(tag => (
-                    <span key={tag} className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-xl text-xs font-bold border border-primary/10">
-                      #{tag} <X size={14} className="cursor-pointer hover:scale-110 transition-transform" onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))} />
+                    <span key={tag} className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-xl text-[10px] font-bold border border-primary/10">
+                      #{tag} <X size={12} className="cursor-pointer hover:scale-110 transition-transform" onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))} />
                     </span>
                   ))}
                   {selectedTags.length > 0 && (
-                    <button onClick={() => setSelectedTags([])} className="px-3 text-xs text-gray-400 font-bold hover:text-primary transition-colors">Clear</button>
+                    <button onClick={() => setSelectedTags([])} className="px-2 text-[10px] text-gray-400 font-bold hover:text-primary transition-colors">Clear</button>
                   )}
                   {selectedTags.length === 0 && (
-                    <span className="px-4 py-1.5 text-xs text-gray-400 font-medium italic">No tags selected</span>
+                    <span className="px-3 py-1 text-[10px] text-gray-400 font-bold italic">No tags selected</span>
                   )}
                 </div>
                 <button 
                   onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
-                  className="hidden md:flex items-center gap-2 bg-primary text-white px-6 py-3.5 rounded-2xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all active:translate-y-0"
+                  className="hidden md:flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all active:translate-y-0"
                 >
-                  <Plus size={20} />
+                  <Plus size={18} />
                   <span>New Note</span>
                 </button>
               </div>
