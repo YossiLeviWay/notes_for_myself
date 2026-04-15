@@ -47,6 +47,7 @@ import {
   Archive,
   Star,
   Clock,
+  Sparkles,
   Copy,
   MoreVertical,
   MoreHorizontal,
@@ -278,8 +279,11 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
           onContextMenu(e.clientX, e.clientY, note.id);
         }
       }}
-      className={`group rounded-2xl overflow-hidden ambient-shadow hover:shadow-[0_25px_60px_-12px_rgba(0,0,0,0.2)] transition-all duration-500 border border-gray-100 flex flex-col backdrop-blur-sm relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-2 ring-purple-400 ring-offset-2' : ''}`}
-      style={{ backgroundColor: note.color || '#FFFFFF' }}
+      className={`group rounded-[2rem] overflow-hidden card-hover border transition-all duration-500 flex flex-col backdrop-blur-xl relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-4 ring-primary/30 ring-offset-4' : ''}`}
+      style={{ 
+        backgroundColor: note.color ? note.color + '11' : (userSettings.theme === 'dark' ? 'rgba(31, 41, 55, 0.4)' : 'rgba(255, 255, 255, 0.4)'),
+        borderColor: note.color ? note.color + '33' : 'rgba(255, 255, 255, 0.2)'
+      }}
       onClick={onClick}
       draggable
       onDragStart={(e) => {
@@ -1295,311 +1299,15 @@ const TaskItem = React.memo(({
   );
 });
 
-const CanvasView = React.memo(({ 
-  notes, 
-  onUpdateNote, 
-  onContextMenu, 
-  isAdmin, 
-  statuses, 
-  userSettings, 
-  openWindow,
-  onPopout,
-  onAddNote,
-  onDelete
-}: {
-  notes: Note[],
-  onUpdateNote: (id: string, data: Partial<Note>) => void,
-  onContextMenu: (x: number, y: number, type: 'board' | 'note', noteId?: string) => void,
-  isAdmin: boolean,
-  statuses: StatusOption[],
-  userSettings: UserSettings,
-  openWindow: (id: string) => void,
-  onPopout: (id: string) => void,
-  onAddNote: (x?: number, y?: number) => void,
-  onDelete: (id: string) => void
-}) => {
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const [snapToGrid, setSnapToGrid] = useState(false);
-  const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const gridSize = 20;
-
-  const handleDragEnd = (id: string, x: number, y: number) => {
-    let finalX = x;
-    let finalY = y;
-    if (snapToGrid) {
-      finalX = Math.round(x / gridSize) * gridSize;
-      finalY = Math.round(y / gridSize) * gridSize;
-    }
-    onUpdateNote(id, { canvasX: finalX, canvasY: finalY });
-  };
-
-  const handleNoteClick = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (linkingFrom) {
-      if (linkingFrom !== id) {
-        const fromNote = notes.find(n => n.id === linkingFrom);
-        if (fromNote) {
-          const newLinks = [...(fromNote.links || []), id];
-          onUpdateNote(linkingFrom, { links: newLinks });
-        }
-      }
-      setLinkingFrom(null);
-    } else {
-      setSelectedNoteId(id === selectedNoteId ? null : id);
-    }
-  };
-
-  // Find all links for drawing lines
-  const lines = useMemo(() => {
-    const result: { from: Note, to: Note }[] = [];
-    notes.forEach(note => {
-      // Manual links
-      if (note.links) {
-        note.links.forEach(linkId => {
-          const target = notes.find(n => n.id === linkId);
-          if (target) result.push({ from: note, to: target });
-        });
-      }
-      // [[Name]] links
-      const matches = note.content.match(/\[\[(.*?)\]\]/g);
-      if (matches) {
-        matches.forEach(match => {
-          const title = match.slice(2, -2);
-          const target = notes.find(n => n.title === title);
-          if (target) result.push({ from: note, to: target });
-        });
-      }
-    });
-    return result;
-  }, [notes]);
-
-  return (
-    <div 
-      ref={canvasRef}
-      className="relative w-full h-[2000px] bg-gray-50/50 rounded-[3rem] border-2 border-dashed border-gray-200 overflow-hidden cursor-crosshair"
-      style={{ 
-        backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)',
-        backgroundSize: '20px 20px'
-      }}
-      onClick={() => {
-        setSelectedNoteId(null);
-        setLinkingFrom(null);
-      }}
-      onContextMenu={(e) => {
-        if (isAdmin && e.target === canvasRef.current) {
-          e.preventDefault();
-          onContextMenu(e.clientX, e.clientY, 'board');
-        }
-      }}
-    >
-      <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-        <defs>
-          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="#9D85FF" />
-          </marker>
-        </defs>
-        {lines.map((line, i) => {
-          const fromWidth = line.from.canvasWidth || 300;
-          const fromHeight = line.from.canvasHeight || 200;
-          const toWidth = line.to.canvasWidth || 300;
-          const toHeight = line.to.canvasHeight || 200;
-
-          const fromX = (line.from.canvasX || 0) + fromWidth / 2;
-          const fromY = (line.from.canvasY || 0) + fromHeight / 2;
-          const toX = (line.to.canvasX || 0) + toWidth / 2;
-          const toY = (line.to.canvasY || 0) + toHeight / 2;
-
-          // Calculate curved path
-          const dx = toX - fromX;
-          const dy = toY - fromY;
-          const midX = fromX + dx / 2;
-          const midY = fromY + dy / 2;
-          
-          // Control points for the curve
-          const cp1x = fromX + dx / 4;
-          const cp1y = fromY;
-          const cp2x = toX - dx / 4;
-          const cp2y = toY;
-
-          const pathData = `M ${fromX} ${fromY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${toX} ${toY}`;
-
-          return (
-            <motion.path
-              key={`${line.from.id}-${line.to.id}-${i}`}
-              d={pathData}
-              fill="none"
-              stroke="#9D85FF"
-              strokeWidth="2"
-              strokeDasharray="5,5"
-              markerEnd="url(#arrowhead)"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 0.4 }}
-              transition={{ duration: 1 }}
-            />
-          );
-        })}
-      </svg>
-
-      {notes.map((note) => (
-        <motion.div
-          key={note.id}
-          drag
-          dragMomentum={false}
-          initial={{ x: note.canvasX || 100, y: note.canvasY || 100 }}
-          animate={{ 
-            x: note.canvasX || 100, 
-            y: note.canvasY || 100,
-            width: note.canvasWidth || 300 
-          }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          onDragEnd={(_, info) => {
-            const newX = (note.canvasX || 100) + info.offset.x;
-            const newY = (note.canvasY || 100) + info.offset.y;
-            handleDragEnd(note.id, newX, newY);
-          }}
-          onClick={(e) => handleNoteClick(e, note.id)}
-          className={`absolute z-10 p-1 rounded-[1.75rem] transition-all duration-300 ${selectedNoteId === note.id ? 'ring-4 ring-purple-400 ring-offset-4' : ''}`}
-        >
-          <NoteCard 
-            note={note}
-            isAdmin={isAdmin}
-            statuses={statuses}
-            userSettings={userSettings}
-            viewMode="full"
-            onClick={() => openWindow(note.id)}
-            onEdit={() => {}} // Handled by openWindow
-            onFavorite={() => {}}
-            onArchive={() => {}}
-            onDelete={() => {}}
-            onStatusChange={() => {}}
-            onColorChange={() => {}}
-            onPin={() => {}}
-            onSizeChange={() => {}}
-            onToggleCollapse={() => {}}
-            onPopout={() => onPopout(note.id)}
-            onContextMenu={onContextMenu}
-          />
-
-          {/* Contextual Toolbar */}
-          {selectedNoteId === note.id && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="absolute -top-16 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-purple-100 z-50"
-            >
-              <button 
-                onClick={(e) => { e.stopPropagation(); setLinkingFrom(note.id); }}
-                className={`p-2 rounded-xl transition-all ${linkingFrom === note.id ? 'bg-purple-500 text-white' : 'hover:bg-purple-50 text-purple-500'}`}
-                title="Connect to another note"
-              >
-                <LinkIcon size={18} />
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); onUpdateNote(note.id, { color: '' }); }}
-                className="w-6 h-6 rounded-full border border-gray-200 bg-white hover:scale-110 transition-transform"
-              />
-              {PASTEL_COLORS.slice(1, 6).map(c => (
-                <button 
-                  key={c.value}
-                  onClick={(e) => { e.stopPropagation(); onUpdateNote(note.id, { color: c.value }); }}
-                  className="w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform"
-                  style={{ backgroundColor: c.value }}
-                />
-              ))}
-              <button 
-                onClick={(e) => { e.stopPropagation(); onUpdateNote(note.id, { links: [] }); }}
-                className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl transition-all"
-                title="Clear all connections"
-              >
-                <LinkIcon size={18} className="rotate-45" />
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
-                className="p-2 hover:bg-red-50 text-red-500 rounded-xl transition-all"
-                title="Delete note"
-              >
-                <Trash2 size={18} />
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); openWindow(note.id); }}
-                className="p-2 hover:bg-purple-50 text-purple-500 rounded-xl transition-all"
-              >
-                <Maximize2 size={18} />
-              </button>
-            </motion.div>
-          )}
-
-          {isAdmin && (
-            <div 
-              className="absolute -right-2 -bottom-2 w-4 h-4 bg-purple-500 rounded-full cursor-nwse-resize z-20 shadow-lg border-2 border-white"
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                const startX = e.clientX;
-                const startWidth = note.canvasWidth || 300;
-                const onMouseMove = (moveE: MouseEvent) => {
-                  const newWidth = Math.max(200, startWidth + (moveE.clientX - startX));
-                  onUpdateNote(note.id, { canvasWidth: newWidth });
-                };
-                const onMouseUp = () => {
-                  window.removeEventListener('mousemove', onMouseMove);
-                  window.removeEventListener('mouseup', onMouseUp);
-                };
-                window.addEventListener('mousemove', onMouseMove);
-                window.addEventListener('mouseup', onMouseUp);
-              }}
-            />
-          )}
-        </motion.div>
-      ))}
-
-      {/* Canvas Controls */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/80 backdrop-blur-xl p-3 rounded-[2rem] shadow-2xl border border-white/50 z-50">
-        <button 
-          onClick={() => onAddNote()}
-          className="flex items-center gap-2 bg-purple-500 text-white px-6 py-3 rounded-2xl font-bold shadow-lg hover:shadow-purple-200 hover:-translate-y-1 transition-all active:translate-y-0"
-        >
-          <Plus size={20} />
-          <span>New Note</span>
-        </button>
-        <button 
-          onClick={() => {
-            if (notes.length > 0) {
-              setLinkingFrom(notes[0].id);
-            }
-          }}
-          className="flex items-center gap-2 bg-white text-purple-500 px-6 py-3 rounded-2xl font-bold shadow-sm border border-purple-100 hover:bg-purple-50 transition-all"
-        >
-          <LinkIcon size={20} />
-          <span>New Connection</span>
-        </button>
-        <div className="w-px h-8 bg-gray-200" />
-        <button 
-          onClick={() => setSnapToGrid(!snapToGrid)}
-          className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all ${snapToGrid ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100 text-gray-500'}`}
-        >
-          <Grid size={20} />
-          <span>Snap to Grid</span>
-        </button>
-        <button 
-          className="flex items-center gap-2 px-4 py-3 rounded-2xl font-bold hover:bg-gray-100 text-gray-500 transition-all"
-          onClick={() => {
-            // Auto-arrange logic could go here
-          }}
-        >
-          <LayoutGrid size={20} />
-          <span>Auto-Arrange</span>
-        </button>
-      </div>
-
-      {linkingFrom && (
-        <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-purple-500 text-white px-6 py-3 rounded-2xl font-bold shadow-2xl animate-bounce z-50">
-          Select a note to connect with...
-        </div>
-      )}
+const EmptyState = ({ message }: { message: string }) => (
+  <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+    <div className="w-20 h-20 bg-purple-50 rounded-full flex items-center justify-center mb-6 text-purple-400">
+      <Search size={40} />
     </div>
-  );
-});
+    <h3 className="text-xl font-bold text-gray-900 mb-2">No results found</h3>
+    <p className="text-gray-500 max-w-xs mx-auto">{message}</p>
+  </div>
+);
 
 function AppContent() {
   const [user, setUser] = useState<User | null>(null);
@@ -2578,7 +2286,7 @@ function AppContent() {
       }}
     >
       {/* Header */}
-      <header className={`backdrop-blur-md border-b sticky top-0 z-[50] px-4 md:px-8 py-4 ${userSettings.theme === 'dark' ? 'bg-gray-900/80 border-gray-800' : 'bg-white/80 border-secondary'}`}>
+      <header className={`backdrop-blur-xl border-b sticky top-0 z-[50] px-4 md:px-8 py-4 ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
@@ -2951,7 +2659,7 @@ function AppContent() {
 
       <div className="flex w-full">
         {/* Sidebar - Desktop */}
-        <aside className={`hidden md:block transition-all duration-300 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto border-r ${userSettings.theme === 'dark' ? 'bg-gray-900/50 border-gray-800' : 'bg-secondary/30 border-secondary/50'} ${userSettings.isSidebarCollapsed ? 'w-20' : 'w-64'} p-4`}>
+        <aside className={`hidden md:block transition-all duration-300 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto border-r ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} ${userSettings.isSidebarCollapsed ? 'w-20' : 'w-64'} p-4`}>
           <div className="flex justify-end mb-4">
             <button 
               onClick={() => setUserSettings(prev => ({ ...prev, isSidebarCollapsed: !prev.isSidebarCollapsed }))}
@@ -2964,19 +2672,6 @@ function AppContent() {
             <div>
               {!userSettings.isSidebarCollapsed && <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-2">Navigation</h3>}
               <ul className="space-y-1">
-                <li>
-                  <button 
-                    onClick={() => setViewMode('canvas')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'canvas' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-white/50 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
-                  >
-                    <Share2 size={18} /> {!userSettings.isSidebarCollapsed && 'Canvas'}
-                    {userSettings.isSidebarCollapsed && (
-                      <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all shadow-lg translate-x-2 group-hover/tooltip:translate-x-0">
-                        Canvas
-                      </div>
-                    )}
-                  </button>
-                </li>
                 <li>
                   <button 
                     onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}
@@ -3113,48 +2808,62 @@ function AppContent() {
           }}
           onClick={() => setContextMenu(null)}
         >
-          <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900">
-                {viewMode === 'board' ? (currentFolderId ? folders.find(f => f.id === currentFolderId)?.name : 'My Notes') : 
-                 viewMode === 'archive' ? 'Archive' : 
-                 viewMode === 'favorites' ? 'Favorites' : 
-                 viewMode === 'workflow' ? 'Workflow Board' : 'Upcoming Due Dates'}
-              </h2>
-              <p className="text-gray-500 mt-1">{filteredNotes.length} notes found</p>
-            </div>
-            
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
-              {selectedTags.map(tag => (
-                <span key={tag} className="flex items-center gap-1 bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-xs font-bold">
-                  #{tag} <X size={12} className="cursor-pointer" onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))} />
-                </span>
-              ))}
-              {selectedTags.length > 0 && (
-                <button onClick={() => setSelectedTags([])} className="text-xs text-gray-400 font-bold hover:text-gray-600">Clear all</button>
-              )}
-            </div>
+          <div className="mb-10">
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex flex-col md:flex-row md:items-end justify-between gap-6"
+            >
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                    <Sparkles size={20} />
+                  </div>
+                  <span className="text-xs font-bold text-primary uppercase tracking-[0.2em]">Workspace</span>
+                </div>
+                <h2 className="text-4xl md:text-5xl font-display font-bold text-gray-900 tracking-tight">
+                  {viewMode === 'board' ? (currentFolderId ? folders.find(f => f.id === currentFolderId)?.name : 'My Notes') : 
+                   viewMode === 'archive' ? 'Archive' : 
+                   viewMode === 'favorites' ? 'Favorites' : 
+                   viewMode === 'workflow' ? 'Workflow Board' : 'Upcoming Due Dates'}
+                </h2>
+                <div className="flex items-center gap-4 mt-4">
+                  <p className="text-gray-500 font-medium flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                    {filteredNotes.length} active notes
+                  </p>
+                  <div className="w-px h-4 bg-gray-200" />
+                  <p className="text-gray-400 text-sm">{format(new Date(), 'EEEE, MMMM do')}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 bg-white/50 backdrop-blur-md p-1.5 rounded-2xl border border-white/50 shadow-sm">
+                  {selectedTags.map(tag => (
+                    <span key={tag} className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-xl text-xs font-bold border border-primary/10">
+                      #{tag} <X size={14} className="cursor-pointer hover:scale-110 transition-transform" onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))} />
+                    </span>
+                  ))}
+                  {selectedTags.length > 0 && (
+                    <button onClick={() => setSelectedTags([])} className="px-3 text-xs text-gray-400 font-bold hover:text-primary transition-colors">Clear</button>
+                  )}
+                  {selectedTags.length === 0 && (
+                    <span className="px-4 py-1.5 text-xs text-gray-400 font-medium italic">No tags selected</span>
+                  )}
+                </div>
+                <button 
+                  onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
+                  className="hidden md:flex items-center gap-2 bg-primary text-white px-6 py-3.5 rounded-2xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all active:translate-y-0"
+                >
+                  <Plus size={20} />
+                  <span>New Note</span>
+                </button>
+              </div>
+            </motion.div>
           </div>
 
           {/* Notes Grid or Workflow Board */}
-          {viewMode === 'canvas' ? (
-            <CanvasView 
-              notes={sortedNotes}
-              onUpdateNote={handleUpdateNote}
-              onContextMenu={(x, y, type, noteId) => setContextMenu({ x, y, type, noteId })}
-              isAdmin={isAdmin}
-              statuses={statuses}
-              userSettings={userSettings}
-              openWindow={openWindow}
-              onPopout={handlePopout}
-              onAddNote={() => {
-                setEditNoteData(null);
-                resetNoteForm();
-                setShowAddNoteModal(true);
-              }}
-              onDelete={deleteNote}
-            />
-          ) : viewMode === 'workflow' ? (
+          {viewMode === 'workflow' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start">
               {statuses.filter(s => s.isVisible).map((status) => (
                 <div key={status.id} className="bg-gray-100/50 rounded-3xl p-3 min-h-[600px] flex flex-col gap-3">
@@ -3368,28 +3077,31 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full ${isQuickNote ? 'max-w-xl' : 'max-w-4xl'} rounded-none md:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-full md:h-auto md:max-h-[90vh]`}
+              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-full ${isQuickNote ? 'max-w-xl' : 'max-w-5xl'} rounded-none md:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-full md:h-auto md:max-h-[90vh] border border-white/20`}
             >
-              <div className={`p-6 border-b flex items-center justify-between ${userSettings.theme === 'dark' ? 'bg-gray-800/40' : 'bg-gray-50/40'}`}>
-                <h2 className="text-2xl font-bold">{editNoteData ? 'Edit Note' : (isQuickNote ? 'Quick Note' : 'Create New Note')}</h2>
-                <button onClick={() => setShowAddNoteModal(false)} className="p-2 hover:bg-gray-200/50 rounded-full transition-colors">
-                  <X size={24} />
+              <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/5">
+                <div>
+                  <h2 className="text-3xl font-display font-bold text-gray-900">{editNoteData ? 'Edit Note' : (isQuickNote ? 'Quick Note' : 'Create New Note')}</h2>
+                  <p className="text-gray-500 text-sm mt-1">Capture your thoughts and organize them beautifully.</p>
+                </div>
+                <button onClick={() => setShowAddNoteModal(false)} className="p-3 hover:bg-black/5 rounded-2xl transition-all active:scale-90">
+                  <X size={24} className="text-gray-400" />
                 </button>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+              <div className="flex-1 overflow-y-auto p-8 md:p-10 space-y-8">
                 {isQuickNote ? (
                   <div className="space-y-4">
                     <input 
                       type="text" 
                       placeholder="Title..."
-                      className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all font-bold text-xl"
+                      className="w-full p-5 bg-white/50 border border-gray-200 rounded-3xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-2xl"
                       value={noteTitle}
                       onChange={(e) => setNoteTitle(e.target.value)}
                     />
                     <div 
                       ref={quillWrapperRef}
-                      className="min-h-[300px] border border-gray-200 rounded-2xl overflow-hidden bg-white"
+                      className="min-h-[400px] border border-gray-200 rounded-3xl overflow-hidden bg-white/80 backdrop-blur-sm shadow-inner"
                     >
                       <ReactQuill 
                         theme="snow" 
@@ -3404,20 +3116,20 @@ function AppContent() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Title</label>
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">Title</label>
                         <input 
                           type="text" 
                           placeholder="Enter note title..."
-                          className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all font-bold text-lg"
+                          className="w-full p-5 bg-white/50 border border-gray-200 rounded-3xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-xl"
                           value={noteTitle}
                           onChange={(e) => setNoteTitle(e.target.value)}
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Folder</label>
+                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">Folder</label>
                           <select 
-                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
+                            className="w-full p-5 bg-white/50 border border-gray-200 rounded-3xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-sm font-bold"
                             value={noteFolderId || ''}
                             onChange={(e) => setNoteFolderId(e.target.value || null)}
                           >
@@ -3426,9 +3138,9 @@ function AppContent() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Status</label>
+                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">Status</label>
                           <select 
-                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all text-sm font-medium"
+                            className="w-full p-5 bg-white/50 border border-gray-200 rounded-3xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-sm font-bold"
                             value={noteStatus}
                             onChange={(e) => setNoteStatus(e.target.value)}
                           >
@@ -3548,16 +3260,16 @@ function AppContent() {
                 )}
               </div>
 
-              <div className={`p-6 border-t flex justify-end gap-3 ${userSettings.theme === 'dark' ? 'bg-gray-800/40' : 'bg-gray-50/40'}`}>
+              <div className="p-8 border-t border-white/10 flex justify-end gap-4 bg-white/5">
                 <button 
                   onClick={() => setShowAddNoteModal(false)}
-                  className="px-6 py-3 bg-white border border-gray-300 rounded-2xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
+                  className="px-8 py-4 bg-white/50 border border-gray-200 rounded-2xl font-bold text-gray-600 hover:bg-white/80 transition-all active:scale-95"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleAddNote}
-                  className="px-8 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all"
+                  className="px-10 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all active:translate-y-0"
                 >
                   {editNoteData ? 'Update Note' : 'Save Note'}
                 </button>
@@ -3748,28 +3460,10 @@ function AppContent() {
               <Plus size={28} />
             </button>
             <button 
-              onClick={() => {
-                if (viewMode === 'canvas') {
-                  setViewMode('board');
-                } else {
-                  setViewMode('canvas');
-                }
-              }}
-              className={`p-3 rounded-2xl transition-all ${viewMode === 'canvas' ? 'bg-primary text-white shadow-lg' : 'text-gray-400'}`}
+              onClick={() => setShowMobileSearch(!showMobileSearch)}
+              className={`p-3 rounded-2xl transition-all ${showMobileSearch ? 'bg-primary text-white shadow-lg' : 'text-gray-400'}`}
             >
-              <Layout size={24} />
-            </button>
-            <button 
-              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className={`p-3 rounded-2xl transition-all ${showFilterDropdown ? 'bg-primary text-white shadow-lg' : 'text-gray-400'}`}
-            >
-              <Filter size={24} />
-            </button>
-            <button 
-              onClick={() => setShowDensityPopover(!showDensityPopover)}
-              className={`p-3 rounded-2xl transition-all ${showDensityPopover ? 'bg-primary text-white shadow-lg' : 'text-gray-400'}`}
-            >
-              <LayoutGrid size={24} />
+              <Search size={24} />
             </button>
             <button 
               onClick={() => setShowSettingsModal(true)}
