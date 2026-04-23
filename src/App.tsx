@@ -280,7 +280,7 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
           onContextMenu(e.clientX, e.clientY, note.id);
         }
       }}
-      className={`group rounded-[2rem] overflow-hidden card-hover border transition-all duration-500 flex flex-col backdrop-blur-xl relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-4 ring-primary/30 ring-offset-4' : ''}`}
+      className={`group rounded-2xl overflow-hidden card-hover border transition-all duration-500 flex flex-col backdrop-blur-xl relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-4 ring-primary/30 ring-offset-4' : ''}`}
       style={{ 
         backgroundColor: note.color ? note.color + '11' : (userSettings.theme === 'dark' ? 'rgba(31, 41, 55, 0.4)' : 'rgba(255, 255, 255, 0.4)'),
         borderColor: note.color ? note.color + '33' : 'rgba(255, 255, 255, 0.2)'
@@ -313,55 +313,55 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
           </div>
         </div>
       )}
-      <div className="p-4 flex-1 flex flex-col">
+      <div className="p-3.5 flex-1 flex flex-col">
         {!note.imageUrl && (
           <div className="mb-2 flex justify-between items-center">
-            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-sm" style={{ backgroundColor: currentStatus.color }}>
+            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider text-white shadow-sm" style={{ backgroundColor: currentStatus.color }}>
               {currentStatus.label}
             </span>
             {note.isPinned && (
               <span className="text-primary">
-                <Pin size={14} fill="currentColor" />
+                <Pin size={12} fill="currentColor" />
               </span>
             )}
           </div>
         )}
-        <div className="flex justify-between items-start mb-2 gap-3">
-          <h3 className={`font-display font-bold text-gray-900 line-clamp-2 group-hover:text-primary transition-colors flex-1 ${note.size === 'lg' ? 'text-2xl' : 'text-lg'}`}>{note.title}</h3>
+        <div className="flex justify-between items-start mb-1.5 gap-2">
+          <h3 className={`font-display font-bold text-gray-900 line-clamp-2 group-hover:text-primary transition-colors flex-1 ${note.size === 'lg' ? 'text-xl' : 'text-[15px]'}`}>{note.title}</h3>
           <div className="flex items-center gap-1 shrink-0">
             <button 
               onClick={(e) => { e.stopPropagation(); onPopout(); }}
-              className="p-1.5 rounded-full text-gray-300 hover:bg-gray-100 hover:text-primary transition-colors"
+              className="p-1 rounded-full text-gray-300 hover:bg-gray-100 hover:text-primary transition-colors"
               title="Pop-out Note"
             >
-              <ExternalLink size={14} />
+              <ExternalLink size={12} />
             </button>
             <button 
               onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-              className={`p-1.5 rounded-full transition-colors ${note.isCollapsed ? 'text-purple-500 bg-purple-50' : 'text-gray-300 hover:bg-gray-100'}`}
+              className={`p-1 rounded-full transition-colors ${note.isCollapsed ? 'text-purple-500 bg-purple-50' : 'text-gray-300 hover:bg-gray-100'}`}
               title={note.isCollapsed ? "Expand Note" : "Collapse Note"}
             >
-              {note.isCollapsed ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
+              {note.isCollapsed ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
             </button>
             <button 
               onClick={(e) => { e.stopPropagation(); onPin(); }}
-              className={`p-1.5 rounded-full transition-colors ${note.isPinned ? 'text-purple-500 bg-purple-50' : 'text-gray-300 hover:bg-gray-100'}`}
+              className={`p-1 rounded-full transition-colors ${note.isPinned ? 'text-purple-500 bg-purple-50' : 'text-gray-300 hover:bg-gray-100'}`}
               title={note.isPinned ? "Unpin Note" : "Pin Note"}
             >
-              <Pin size={14} fill={note.isPinned ? "currentColor" : "none"} />
+              <Pin size={12} fill={note.isPinned ? "currentColor" : "none"} />
             </button>
             <button 
               onClick={(e) => { e.stopPropagation(); onFavorite(); }}
-              className={`p-1.5 rounded-full transition-colors ${note.isFavorite ? 'text-yellow-400 bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}
+              className={`p-1 rounded-full transition-colors ${note.isFavorite ? 'text-yellow-400 bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}
             >
-              <Star size={14} fill={note.isFavorite ? "currentColor" : "none"} />
+              <Star size={12} fill={note.isFavorite ? "currentColor" : "none"} />
             </button>
           </div>
         </div>
         
         {!note.isCollapsed && (
           <div 
-            className={`text-gray-500 text-sm mb-2 flex-1 prose prose-sm prose-p:my-0.5 prose-headings:my-1 prose-ul:my-1 prose-li:my-0 max-w-none leading-relaxed w-full overflow-hidden note-content ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-4' : (note.size === 'lg' ? 'line-clamp-none' : '')}`}
+            className={`text-gray-500 text-[13px] mb-2 flex-1 prose prose-sm prose-p:my-0 prose-headings:my-1 prose-ul:my-0.5 prose-li:my-0 max-w-none leading-relaxed w-full overflow-hidden note-content ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-4' : (note.size === 'lg' ? 'line-clamp-none' : '')}`}
             dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
             style={{ 
               textAlign: note.alignment || 'start',
@@ -936,11 +936,11 @@ const TaskSidebar = React.memo(({
 
   return (
     <motion.aside
-      initial={isPinned ? { width: 320 } : { x: 320 }}
-      animate={isPinned ? { width: 320 } : { x: 0 }}
-      exit={isPinned ? { width: 0 } : { x: 320 }}
-      className={`bg-white border-l border-gray-100 flex flex-col transition-all duration-300 z-[40] ${isPinned ? 'relative h-[calc(100vh-80px)] sticky top-20' : 'fixed right-0 top-20 h-[calc(100vh-80px)] shadow-2xl'}`}
-      style={{ width: 320 }}
+      initial={isPinned ? { width: 300 } : { x: 300 }}
+      animate={isPinned ? { width: 300 } : { x: 0 }}
+      exit={isPinned ? { width: 0 } : { x: 300 }}
+      className={`bg-white border-l border-gray-100 flex flex-col transition-all duration-300 z-[40] ${isPinned ? 'relative h-[calc(100vh-64px)] sticky top-16' : 'fixed right-0 top-16 h-[calc(100vh-64px)] shadow-2xl'}`}
+      style={{ width: 300 }}
     >
       <div className="p-4 border-b flex items-center justify-between bg-gray-50/50">
         <div className="flex items-center gap-3">
@@ -1418,7 +1418,7 @@ function AppContent() {
   ]);
   const [userSettings, setUserSettings] = useState<UserSettings>({
     defaultFont: 'Inter',
-    defaultSize: '16px',
+    defaultSize: '14px',
     defaultAlignment: 'left',
     cardViewMode: 'compact',
     defaultFolderId: null,
@@ -1427,8 +1427,8 @@ function AppContent() {
     startupTaskListId: null,
     enableNotifications: false,
     isSidebarCollapsed: false,
-    gridColumns: 3,
-    notesPerColumn: 10,
+    gridColumns: 4,
+    notesPerColumn: 15,
     sortBy: 'date',
     theme: 'light',
     boardTheme: '#F9F7FF'
@@ -2383,20 +2383,20 @@ function AppContent() {
       }}
     >
       {/* Header */}
-      <header className={`backdrop-blur-xl border-b sticky top-0 z-[50] px-4 md:px-12 py-4 md:py-6 ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'}`}>
+      <header className={`backdrop-blur-xl border-b sticky top-0 z-[50] px-4 md:px-10 py-3 md:py-3.5 ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'}`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-purple-50 rounded-full transition-colors md:hidden"
+              className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors md:hidden"
             >
-              <Menu size={24} />
+              <Menu size={20} />
             </button>
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}>
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-primary/20">
-                <PlusCircle size={24} />
+              <div className="w-8 h-8 md:w-9 md:h-9 bg-primary rounded-lg flex items-center justify-center text-white shrink-0 shadow-lg shadow-primary/20">
+                <PlusCircle size={20} />
               </div>
-              <h1 className="text-xl font-bold tracking-tight hidden sm:block truncate text-gray-800">Notes For Myself</h1>
+              <h1 className="text-lg font-bold tracking-tight hidden sm:block truncate text-gray-800">Notes For Myself</h1>
             </div>
 
             {/* Mobile Search Toggle */}
@@ -2756,25 +2756,25 @@ function AppContent() {
 
       <div className="flex w-full">
         {/* Sidebar - Desktop */}
-        <aside className={`hidden md:block transition-all duration-300 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto border-r ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} ${userSettings.isSidebarCollapsed ? 'w-20' : 'w-64'} p-4`}>
-          <div className="flex justify-end mb-4">
+        <aside className={`hidden md:block transition-all duration-300 sticky top-16 h-[calc(100vh-64px)] overflow-y-auto border-r ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} ${userSettings.isSidebarCollapsed ? 'w-16' : 'w-60'} p-3`}>
+          <div className="flex justify-end mb-3">
             <button 
               onClick={() => setUserSettings(prev => ({ ...prev, isSidebarCollapsed: !prev.isSidebarCollapsed }))}
-              className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"
             >
-              <ChevronLeft size={18} className={`transition-transform duration-300 ${userSettings.isSidebarCollapsed ? 'rotate-180' : ''}`} />
+              <ChevronLeft size={16} className={`transition-transform duration-300 ${userSettings.isSidebarCollapsed ? 'rotate-180' : ''}`} />
             </button>
           </div>
-          <nav className="space-y-6">
+          <nav className="space-y-5">
             <div>
-              {!userSettings.isSidebarCollapsed && <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 px-2">Navigation</h3>}
+              {!userSettings.isSidebarCollapsed && <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 px-2">Navigation</h3>}
               <ul className="space-y-1">
                 <li>
                   <button 
                     onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative group/tooltip ${viewMode === 'board' && !currentFolderId ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-white/50 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
+                    className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all relative group/tooltip ${viewMode === 'board' && !currentFolderId ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-white/50 text-gray-700'} ${userSettings.isSidebarCollapsed ? 'justify-center' : ''}`}
                   >
-                    <Grid size={18} /> {!userSettings.isSidebarCollapsed && 'All Notes'}
+                    <Grid size={16} /> {!userSettings.isSidebarCollapsed && 'All Notes'}
                     {userSettings.isSidebarCollapsed && (
                       <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-[10px] rounded opacity-0 group-hover/tooltip:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-all shadow-lg translate-x-2 group-hover/tooltip:translate-x-0">
                         All Notes
@@ -2896,7 +2896,7 @@ function AppContent() {
 
         {/* Main Content */}
         <main 
-          className="flex-1 p-6 md:p-12 relative max-w-screen-2xl mx-auto w-full"
+          className="flex-1 p-4 md:p-8 relative max-w-screen-2xl mx-auto w-full transition-all duration-300"
           onContextMenu={(e) => {
             if (isAdmin) {
               e.preventDefault();
@@ -2918,27 +2918,27 @@ function AppContent() {
                   </div>
                   <span className="text-xs font-bold text-primary uppercase tracking-[0.2em]">Workspace</span>
                 </div>
-                <h2 className="text-2xl md:text-3xl font-display font-bold text-gray-900 tracking-tight">
+                 <h2 className="text-xl md:text-2xl font-display font-bold text-gray-900 tracking-tight">
                   {viewMode === 'board' ? (currentFolderId ? folders.find(f => f.id === currentFolderId)?.name : 'My Notes') : 
                    viewMode === 'archive' ? 'Archive' : 
                    viewMode === 'favorites' ? 'Favorites' : 
                    viewMode === 'workflow' ? 'Workflow Board' : 'Upcoming Due Dates'}
                 </h2>
                 <div className="flex items-center gap-4 mt-2">
-                  <p className="text-gray-500 font-bold text-xs flex items-center gap-2">
+                  <p className="text-gray-500 font-bold text-[10px] flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                     {filteredNotes.length} active notes
                   </p>
                   <div className="w-px h-3 bg-gray-200" />
-                  <p className="text-gray-400 text-xs font-bold">{format(new Date(), 'EEEE, MMMM do')}</p>
+                  <p className="text-gray-400 text-[10px] font-bold tracking-tight">{format(new Date(), 'EEEE, MMMM do')}</p>
                 </div>
               </div>
               
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-white/50 backdrop-blur-md p-1 rounded-2xl border border-white/50 shadow-sm">
+                <div className="flex items-center gap-2 bg-white/50 backdrop-blur-md p-0.5 rounded-xl border border-white/50 shadow-sm transition-all">
                   {selectedTags.map(tag => (
-                    <span key={tag} className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-xl text-[10px] font-bold border border-primary/10">
-                      #{tag} <X size={12} className="cursor-pointer hover:scale-110 transition-transform" onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))} />
+                    <span key={tag} className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded-lg text-[10px] font-bold border border-primary/10">
+                      #{tag} <X size={10} className="cursor-pointer hover:scale-110 transition-transform" onClick={() => setSelectedTags(prev => prev.filter(t => t !== tag))} />
                     </span>
                   ))}
                   {selectedTags.length > 0 && (
@@ -2950,9 +2950,9 @@ function AppContent() {
                 </div>
                 <button 
                   onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
-                  className="hidden md:flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all active:translate-y-0"
+                  className="hidden md:flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all active:translate-y-0"
                 >
-                  <Plus size={18} />
+                  <Plus size={16} />
                   <span>New Note</span>
                 </button>
               </div>
@@ -3014,7 +3014,7 @@ function AppContent() {
             </div>
           ) : (
             <div 
-              className="grid gap-3 auto-rows-min grid-flow-dense"
+              className="grid gap-4 auto-rows-min grid-flow-dense"
               style={{ 
                 gridTemplateColumns: `repeat(${isMobile() ? 1 : userSettings.gridColumns}, minmax(0, 1fr))` 
               }}
@@ -3189,29 +3189,29 @@ function AppContent() {
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-[92%] ${isQuickNote ? 'max-w-xl' : 'max-w-5xl'} rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[80vh] md:h-auto md:max-h-[90vh] border border-white/20`}
             >
-              <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <div className="p-5 md:p-6 border-b border-white/10 flex items-center justify-between bg-white/5">
                 <div>
-                  <h2 className="text-3xl font-display font-bold text-gray-900">{editNoteData ? 'Edit Note' : (isQuickNote ? 'Quick Note' : 'Create New Note')}</h2>
-                  <p className="text-gray-500 text-sm mt-1">Capture your thoughts and organize them beautifully.</p>
+                  <h2 className="text-xl md:text-2xl font-display font-bold text-gray-900">{editNoteData ? 'Edit Note' : (isQuickNote ? 'Quick Note' : 'Create New Note')}</h2>
+                  <p className="text-gray-500 text-xs mt-1">Capture your thoughts and organize them beautifully.</p>
                 </div>
-                <button onClick={() => setShowAddNoteModal(false)} className="p-3 hover:bg-black/5 rounded-2xl transition-all active:scale-90">
-                  <X size={24} className="text-gray-400" />
+                <button onClick={() => setShowAddNoteModal(false)} className="p-2 hover:bg-black/5 rounded-xl transition-all active:scale-90">
+                  <X size={20} className="text-gray-400" />
                 </button>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-8 md:p-10 space-y-8">
+              <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-6">
                 {isQuickNote ? (
                   <div className="space-y-4">
                     <input 
                       type="text" 
                       placeholder="Title..."
-                      className="w-full p-5 bg-white/50 border border-gray-200 rounded-3xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-2xl"
+                      className="w-full p-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-lg"
                       value={noteTitle}
                       onChange={(e) => setNoteTitle(e.target.value)}
                     />
                     <div 
                       ref={quillWrapperRef}
-                      className="min-h-[400px] border border-gray-200 rounded-3xl overflow-hidden bg-white/80 backdrop-blur-sm shadow-inner"
+                      className="min-h-[300px] border border-gray-200 rounded-2xl overflow-hidden bg-white/80 backdrop-blur-sm shadow-inner"
                     >
                       <ReactQuill 
                         theme="snow" 
@@ -3223,23 +3223,23 @@ function AppContent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">Title</label>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Title</label>
                         <input 
                           type="text" 
                           placeholder="Enter note title..."
-                          className="w-full p-5 bg-white/50 border border-gray-200 rounded-3xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-xl"
+                          className="w-full p-3.5 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-base"
                           value={noteTitle}
                           onChange={(e) => setNoteTitle(e.target.value)}
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-6">
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">Folder</label>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Folder</label>
                           <select 
-                            className="w-full p-5 bg-white/50 border border-gray-200 rounded-3xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-sm font-bold"
+                            className="w-full p-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-xs font-bold"
                             value={noteFolderId || ''}
                             onChange={(e) => setNoteFolderId(e.target.value || null)}
                           >
@@ -3248,9 +3248,9 @@ function AppContent() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 px-1">Status</label>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Status</label>
                           <select 
-                            className="w-full p-5 bg-white/50 border border-gray-200 rounded-3xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-sm font-bold"
+                            className="w-full p-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-xs font-bold"
                             value={noteStatus}
                             onChange={(e) => setNoteStatus(e.target.value)}
                           >
@@ -3370,16 +3370,16 @@ function AppContent() {
                 )}
               </div>
 
-              <div className="p-8 border-t border-white/10 flex justify-end gap-4 bg-white/5">
+              <div className="p-5 md:p-6 border-t border-white/10 flex justify-end gap-3 bg-white/5">
                 <button 
                   onClick={() => setShowAddNoteModal(false)}
-                  className="px-8 py-4 bg-white/50 border border-gray-200 rounded-2xl font-bold text-gray-600 hover:bg-white/80 transition-all active:scale-95"
+                  className="px-5 py-2.5 bg-white/50 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-white/80 transition-all active:scale-95 text-xs"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleAddNote}
-                  className="px-10 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all active:translate-y-0"
+                  className="px-6 py-2.5 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all active:translate-y-0 text-xs"
                 >
                   {editNoteData ? 'Update Note' : 'Save Note'}
                 </button>
@@ -3401,25 +3401,25 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-[92%] max-w-md rounded-[2.5rem] shadow-2xl p-8 border border-white/20`}
+              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-[92%] max-w-sm rounded-[2rem] shadow-2xl p-6 border border-white/20`}
             >
-              <h2 className="text-2xl font-bold mb-6">{editFolderData ? 'Edit Folder' : 'New Folder'}</h2>
+              <h2 className="text-xl font-bold mb-4 tracking-tight">{editFolderData ? 'Edit Folder' : 'New Folder'}</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Folder Name</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Folder Name</label>
                   <input 
                     type="text" 
                     id="folderName"
                     placeholder="Enter folder name..."
-                    className="w-full p-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold"
+                    className="w-full p-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-sm"
                     defaultValue={editFolderData?.name}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Parent Folder (Optional)</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Parent Folder</label>
                   <select 
                     id="folderParent"
-                    className="w-full p-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-sm font-medium"
+                    className="w-full p-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-xs font-bold"
                     defaultValue={editFolderData?.parentId || ''}
                   >
                     <option value="">Root</option>
@@ -3427,17 +3427,17 @@ function AppContent() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Folder Wallpaper (URL or Gradient)</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 shadow-sm px-1">Folder Wallpaper</label>
                   <input 
                     type="text" 
                     id="folderWallpaper"
-                    placeholder="linear-gradient(to right, #ff7e5f, #feb47b) or image URL"
-                    className="w-full p-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold"
+                    placeholder="linear-gradient(...) or image URL"
+                    className="w-full p-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-xs"
                     defaultValue={editFolderData?.wallpaper}
                   />
                 </div>
               </div>
-              <div className="flex gap-3 mt-8">
+              <div className="flex gap-2 mt-6">
                 <button 
                   onClick={() => {
                     const name = (document.getElementById('folderName') as HTMLInputElement).value;
@@ -3445,13 +3445,13 @@ function AppContent() {
                     const wallpaper = (document.getElementById('folderWallpaper') as HTMLInputElement).value || '';
                     handleAddFolder(name, parentId, wallpaper);
                   }}
-                  className="flex-1 bg-primary text-white py-4 rounded-2xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
+                  className="flex-1 bg-primary text-white py-2.5 rounded-xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all text-sm"
                 >
                   Save Folder
                 </button>
                 <button 
                   onClick={() => setShowAddFolderModal(false)}
-                  className="flex-1 bg-white/50 text-gray-600 py-4 rounded-2xl font-bold hover:bg-white/80 transition-all border border-gray-200"
+                  className="flex-1 bg-white/50 text-gray-600 py-2.5 rounded-xl font-bold hover:bg-white/80 transition-all border border-gray-200 text-sm"
                 >
                   Cancel
                 </button>
@@ -3968,30 +3968,30 @@ function SettingsModal({
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             className={`relative ${localSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-[92%] max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[80vh] md:h-auto md:max-h-[90vh] border border-white/20`}
           >
-            <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/5">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary/10 text-primary rounded-2xl">
-                  <Settings size={24} />
+              <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/5">
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
+                    <Settings size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-display font-bold text-gray-900">Settings</h2>
+                    <p className="text-gray-500 text-[10px] mt-0.5">Customize your workspace</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-display font-bold text-gray-900">Settings</h2>
-                  <p className="text-gray-500 text-xs mt-0.5">Customize your workspace</p>
-                </div>
-              </div>
-              <button onClick={onClose} className="p-3 hover:bg-black/5 rounded-2xl transition-all active:scale-90">
-                <X size={24} className="text-gray-400" />
-              </button>
-            </div>
-
-            <div className={`flex flex-1 overflow-hidden ${isMobile() ? 'flex-col' : ''}`}>
-              {/* Sidebar Tabs */}
-              <div className={`${isMobile() ? 'w-full flex overflow-x-auto border-b no-scrollbar' : 'w-56 border-r'} p-4 space-y-1 md:space-y-1 ${localSettings.theme === 'dark' ? 'bg-gray-800/20' : 'bg-gray-50/20'}`}>
-                <button 
-                  onClick={() => setActiveTab('general')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all shrink-0 ${activeTab === 'general' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
-                >
-                  <Settings size={18} /> General
+                <button onClick={onClose} className="p-2 hover:bg-black/5 rounded-xl transition-all active:scale-90">
+                  <X size={20} className="text-gray-400" />
                 </button>
+              </div>
+
+              <div className={`flex flex-1 overflow-hidden ${isMobile() ? 'flex-col' : ''}`}>
+                {/* Sidebar Tabs */}
+                <div className={`${isMobile() ? 'w-full flex overflow-x-auto border-b no-scrollbar' : 'w-48 border-r'} p-3 space-y-0.5 md:space-y-0.5 ${localSettings.theme === 'dark' ? 'bg-gray-800/20' : 'bg-gray-50/20'}`}>
+                  <button 
+                    onClick={() => setActiveTab('general')}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${activeTab === 'general' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
+                  >
+                    <Settings size={16} /> General
+                  </button>
                 <button 
                   onClick={() => setActiveTab('appearance')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all shrink-0 ${activeTab === 'appearance' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-gray-500 hover:bg-white/50'}`}
