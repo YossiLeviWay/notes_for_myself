@@ -1851,19 +1851,21 @@ function AppContent() {
   const currentFolderId = activePane.currentFolderId;
   const currentProjectId = activePane.currentProjectId;
 
-  const setViewMode = (v: string) => {
-    const newPanes = panes.map(p => p.id === activePaneId ? { ...p, viewMode: v } : p);
+  const updatePaneState = (id: string, updates: Partial<WorkspacePaneConfig>) => {
+    const newPanes = panes.map(p => p.id === id ? { ...p, ...updates } : p);
     updatePanes(newPanes);
+  };
+
+  const setViewMode = (v: string) => {
+    updatePaneState(activePaneId, { viewMode: v });
   };
 
   const setCurrentFolderId = (id: string | null) => {
-    const newPanes = panes.map(p => p.id === activePaneId ? { ...p, currentFolderId: id, currentProjectId: null, viewMode: 'board' } : p);
-    updatePanes(newPanes);
+    updatePaneState(activePaneId, { currentFolderId: id, currentProjectId: null, viewMode: 'board' });
   };
 
   const setCurrentProjectId = (id: string | null) => {
-    const newPanes = panes.map(p => p.id === activePaneId ? { ...p, currentProjectId: id, currentFolderId: null, viewMode: 'project' } : p);
-    updatePanes(newPanes);
+    updatePaneState(activePaneId, { currentProjectId: id, currentFolderId: null, viewMode: 'project' });
   };
 
   const toggleFolderExpanded = (id: string) => {
@@ -2977,8 +2979,12 @@ function AppContent() {
               type="text" 
               placeholder="Search notes, tags, ideas..."
               className={`w-full bg-gray-50/50 group-hover:bg-gray-100/50 border-2 border-transparent focus:border-primary/20 focus:bg-white pl-12 pr-14 py-3 rounded-[1.5rem] text-sm font-medium transition-all focus:outline-none focus:ring-8 focus:ring-primary/5`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={activePane.searchQuery || searchQuery}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSearchQuery(val);
+                updatePaneState(activePaneId, { searchQuery: val });
+              }}
             />
             <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
               <button 
@@ -2990,18 +2996,17 @@ function AppContent() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-             <div className="hidden sm:flex items-center gap-1 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100/50">
+          <div className="flex items-center gap-4">
+             <div className="hidden lg:flex items-center gap-1.5 p-1 rounded-2xl bg-gray-100/50 backdrop-blur-md border border-gray-200/50">
                 <button 
                   onClick={() => {
                     const newPanes = [{ id: `pane-1`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }];
                     updatePanes(newPanes);
                     updateActivePaneId(newPanes[0].id);
                   }}
-                  className={`p-2 rounded-xl transition-all ${panes.length === 1 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary active:scale-90'}`}
-                  title="Single View"
+                  className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${panes.length === 1 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary'}`}
                 >
-                  <Minimize2 size={16} />
+                  <Minimize2 size={12} /> Single
                 </button>
                 <button 
                   onClick={() => {
@@ -3012,10 +3017,9 @@ function AppContent() {
                     updatePanes(newPanes);
                     updateActivePaneId(newPanes[0].id);
                   }}
-                  className={`p-2 rounded-xl transition-all ${panes.length === 2 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary active:scale-90'}`}
-                  title="Split View"
+                  className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${panes.length === 2 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary'}`}
                 >
-                  <Columns size={16} />
+                  <Columns size={12} /> Split
                 </button>
                 <button 
                   onClick={() => {
@@ -3028,37 +3032,38 @@ function AppContent() {
                     updatePanes(newPanes);
                     updateActivePaneId(newPanes[0].id);
                   }}
-                  className={`p-2 rounded-xl transition-all ${panes.length === 4 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary active:scale-90'}`}
-                  title="Mosaic 4-Pane"
+                  className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${panes.length === 4 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary'}`}
                 >
-                  <LayoutGrid size={16} />
+                  <LayoutGrid size={12} /> Mosaic
                 </button>
              </div>
 
-             <div className="hidden xl:flex items-center gap-1.5 px-3 border-x border-gray-200">
+             <div className="flex items-center gap-2">
                 <button 
                    onClick={() => setIsTaskSidebarOpen(!isTaskSidebarOpen)}
-                   className={`p-2.5 rounded-2xl transition-all ${isTaskSidebarOpen ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50 active:scale-90'}`}
+                   className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${isTaskSidebarOpen ? 'bg-primary text-white shadow-lg' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
                 >
-                   <CheckSquare size={20} />
+                   <CheckSquare size={18} />
                 </button>
+                
+                <div 
+                  className="relative group"
+                  onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
+                >
+                  <button className="h-10 px-4 bg-primary text-white rounded-2xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0 transition-all">
+                    <Plus size={16} />
+                    <span className="hidden sm:inline whitespace-nowrap">Create</span>
+                  </button>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-ping" />
+                </div>
+
                 <button 
                    onClick={() => setShowSettingsModal(true)}
-                   className="p-2.5 text-gray-400 hover:bg-gray-50 rounded-2xl transition-all active:scale-90"
+                   className="w-10 h-10 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center hover:bg-gray-200 transition-all"
                 >
-                   <Settings size={20} />
+                   <Settings size={18} />
                 </button>
              </div>
-
-             <button 
-                onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
-                className="relative bg-primary text-white h-12 px-6 rounded-[1.25rem] font-bold shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-2.5 group overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                <Plus size={20} className="group-hover:rotate-90 transition-transform duration-500" />
-                <span className="hidden lg:inline">New Note</span>
-                <span className="lg:hidden">New</span>
-              </button>
           </div>
         </div>
       </header>
@@ -3159,7 +3164,11 @@ function AppContent() {
                 <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 px-2 text-center text-gray-400">Split View</h3>
                 <div className="flex gap-2 px-2">
                   <button 
-                    onClick={() => setPanes([{ id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }])}
+                    onClick={() => {
+                        const newPanes = [{ id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }];
+                        updatePanes(newPanes);
+                        updateActivePaneId(newPanes[0].id);
+                    }}
                     className={`flex-1 p-2 rounded-lg border flex items-center justify-center transition-all ${panes.length === 1 ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
                     title="Single"
                   >
@@ -3168,10 +3177,12 @@ function AppContent() {
                   <button 
                     onClick={() => {
                       if (panes.length === 2) return;
-                      setPanes([
+                      const newPanes = [
                         { id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
                         { id: 'pane-2', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
-                      ]);
+                      ];
+                      updatePanes(newPanes);
+                      updateActivePaneId(newPanes[0].id);
                     }}
                     className={`flex-1 p-2 rounded-lg border flex items-center justify-center transition-all ${panes.length === 2 ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
                     title="Split"
@@ -3181,12 +3192,14 @@ function AppContent() {
                   <button 
                     onClick={() => {
                       if (panes.length === 4) return;
-                      setPanes([
+                      const newPanes = [
                         { id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
                         { id: 'pane-2', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
                         { id: 'pane-3', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
                         { id: 'pane-4', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
-                      ]);
+                      ];
+                      updatePanes(newPanes);
+                      updateActivePaneId(newPanes[0].id);
                     }}
                     className={`flex-1 p-2 rounded-lg border flex items-center justify-center transition-all ${panes.length === 4 ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
                     title="Grid"
@@ -3200,22 +3213,20 @@ function AppContent() {
         </aside>
 
         {/* Main Content */}
-        <main className={`flex-1 relative w-full h-[calc(100vh-80px)] overflow-hidden transition-all duration-300 p-2 ${panes.length === 1 ? 'flex' : panes.length === 2 ? 'grid grid-cols-2' : 'grid grid-cols-4'}`}>
+        <main className={`flex-1 relative w-full h-[calc(100vh-80px)] overflow-hidden transition-all duration-300 p-3 ${panes.length === 1 ? 'flex' : panes.length === 2 ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-2 grid-rows-2 gap-4'}`}>
           {panes.map((pane, idx) => {
-            const isWideGrid = panes.length === 4 && !isMobile();
-            
             return (
               <div 
                 key={pane.id}
-                className={`relative bg-white rounded-[2.5rem] overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.02)] transition-all duration-500 border-4 h-full ${activePaneId === pane.id ? 'border-primary ring-8 ring-primary/5 z-10 scale-[0.995]' : 'border-transparent opacity-90 grayscale-[0.2] scale-[0.98]'}`}
+                className={`relative bg-white rounded-[2.5rem] overflow-hidden shadow-2xl transition-all duration-500 border-4 h-full ${activePaneId === pane.id ? 'border-primary ring-[12px] ring-primary/5 z-10' : 'border-transparent opacity-80 grayscale-[0.3]'}`}
                 onClick={() => updateActivePaneId(pane.id)}
               >
                 {/* Minimal Header for Panes */}
                 {panes.length > 1 && (
-                   <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
-                     <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold ${activePaneId === pane.id ? 'bg-primary text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
-                       {idx + 1}
-                     </span>
+                   <div className="absolute top-6 right-6 z-20 flex items-center gap-2 pointer-events-none">
+                     <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${activePaneId === pane.id ? 'bg-primary text-white shadow-xl' : 'bg-gray-100 text-gray-400'}`}>
+                       Pane {idx + 1}
+                     </div>
                    </div>
                 )}
 
