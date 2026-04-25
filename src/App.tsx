@@ -216,6 +216,8 @@ interface UserSettings {
   sortBy: 'date' | 'status';
   theme: 'light' | 'dark' | 'glass' | 'minimal';
   boardTheme: string;
+  panes?: WorkspacePaneConfig[];
+  activePaneId?: string;
 }
 
 interface ProjectItem {
@@ -1814,6 +1816,28 @@ function AppContent() {
     { id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
   ]);
   const [activePaneId, setActivePaneId] = useState<string>('pane-1');
+
+  const updatePanes = async (newPanes: WorkspacePaneConfig[]) => {
+    setPanes(newPanes);
+    if (!user || !isAdmin) return;
+    const sDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
+    try {
+      await updateDoc(sDoc, { 'userSettings.panes': newPanes });
+    } catch (err) {
+      console.error("Error updating panes:", err);
+    }
+  };
+
+  const updateActivePaneId = async (id: string) => {
+    setActivePaneId(id);
+    if (!user || !isAdmin) return;
+    const sDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
+    try {
+      await updateDoc(sDoc, { 'userSettings.activePaneId': id });
+    } catch (err) {
+      console.error("Error updating activePaneId:", err);
+    }
+  };
   const [currentNote, setCurrentNote] = useState<Note | null>(null);
   const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
@@ -1828,15 +1852,18 @@ function AppContent() {
   const currentProjectId = activePane.currentProjectId;
 
   const setViewMode = (v: string) => {
-    setPanes(prev => prev.map(p => p.id === activePaneId ? { ...p, viewMode: v } : p));
+    const newPanes = panes.map(p => p.id === activePaneId ? { ...p, viewMode: v } : p);
+    updatePanes(newPanes);
   };
 
   const setCurrentFolderId = (id: string | null) => {
-    setPanes(prev => prev.map(p => p.id === activePaneId ? { ...p, currentFolderId: id, currentProjectId: null, viewMode: 'board' } : p));
+    const newPanes = panes.map(p => p.id === activePaneId ? { ...p, currentFolderId: id, currentProjectId: null, viewMode: 'board' } : p);
+    updatePanes(newPanes);
   };
 
   const setCurrentProjectId = (id: string | null) => {
-    setPanes(prev => prev.map(p => p.id === activePaneId ? { ...p, currentProjectId: id, currentFolderId: null, viewMode: 'project' } : p));
+    const newPanes = panes.map(p => p.id === activePaneId ? { ...p, currentProjectId: id, currentFolderId: null, viewMode: 'project' } : p);
+    updatePanes(newPanes);
   };
 
   const toggleFolderExpanded = (id: string) => {
@@ -2415,6 +2442,8 @@ function AppContent() {
         if (data.statuses) setStatuses(data.statuses);
         if (data.userSettings) {
           setUserSettings(data.userSettings);
+          if (data.userSettings.panes) setPanes(data.userSettings.panes);
+          if (data.userSettings.activePaneId) setActivePaneId(data.userSettings.activePaneId);
           
           // Initialize startup view once
           if (!hasInitializedStartup.current) {
@@ -2896,376 +2925,143 @@ function AppContent() {
       }}
     >
       {/* Header */}
-      <header className={`backdrop-blur-xl border-b sticky top-0 z-[50] px-4 md:px-10 py-3 md:py-3.5 ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors md:hidden"
-            >
-              <Menu size={20} />
-            </button>
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}>
-              <div className="w-8 h-8 md:w-9 md:h-9 bg-primary rounded-lg flex items-center justify-center text-white shrink-0 shadow-lg shadow-primary/20">
-                <PlusCircle size={20} />
-              </div>
-              <h1 className="text-lg font-bold tracking-tight hidden sm:block truncate text-gray-800">Notes For Myself</h1>
-            </div>
-
-            {/* Mobile Search Toggle */}
-            <div className="flex items-center gap-2 md:hidden">
+      <header className={`sticky top-0 z-50 w-full transition-all duration-500 px-4 py-3 md:px-8 ${userSettings.theme === 'dark' ? 'bg-gray-900/80 shadow-[0_4px_30px_rgba(0,0,0,0.3)]' : 'bg-white/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)]'} backdrop-blur-2xl border-b border-white/20`}>
+        <div className="max-w-[2400px] mx-auto flex items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
               <button 
-                onClick={() => setShowMobileSearch(!showMobileSearch)}
-                className={`p-2 rounded-xl transition-all ${showMobileSearch ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:bg-gray-100'}`}
+                onClick={() => setIsSidebarOpen(true)}
+                className="md:hidden p-2.5 hover:bg-primary/10 rounded-2xl text-primary transition-all active:scale-95"
               >
-                <Search size={22} />
+                <Menu size={24} />
               </button>
+              <div 
+                className="group flex items-center gap-3 cursor-pointer" 
+                onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}
+              >
+                <div className="w-10 h-10 bg-primary/10 text-primary rounded-[1rem] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500">
+                  <PlusCircle size={24} />
+                </div>
+                <div className="hidden sm:block">
+                  <h1 className="text-lg font-display font-bold text-gray-900 leading-tight">Notes For Myself</h1>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Workspace</p>
+                </div>
+              </div>
             </div>
 
-            <div className="hidden md:flex items-center gap-1 ml-2 border-l pl-4 border-gray-100">
+            <div className="hidden lg:flex items-center gap-1 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100/50">
               <button 
                 onClick={handleUndo}
                 disabled={historyIndex < 0}
-                className={`p-2 rounded-xl transition-all ${historyIndex < 0 ? 'text-gray-300' : 'text-gray-600 hover:bg-purple-50 hover:text-purple-500'}`}
+                className={`p-2 rounded-xl transition-all ${historyIndex < 0 ? 'text-gray-200' : 'text-gray-500 hover:bg-white hover:shadow-sm hover:text-primary active:scale-90'}`}
                 title="Undo (Ctrl+Z)"
               >
-                <Undo2 size={20} />
+                <Undo2 size={18} />
               </button>
               <button 
                 onClick={handleRedo}
                 disabled={historyIndex >= history.length - 1}
-                className={`p-2 rounded-xl transition-all ${historyIndex >= history.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-purple-50 hover:text-purple-500'}`}
+                className={`p-2 rounded-xl transition-all ${historyIndex >= history.length - 1 ? 'text-gray-200' : 'text-gray-500 hover:bg-white hover:shadow-sm hover:text-primary active:scale-90'}`}
                 title="Redo (Ctrl+Y)"
               >
-                <Redo2 size={20} />
+                <Redo2 size={18} />
               </button>
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className={`hidden md:flex relative items-center border rounded-full py-2 px-4 shadow-sm hover:shadow-md transition-shadow max-w-md w-full mx-4 ${userSettings.theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-secondary/50'}`}>
-            <Search size={18} className="text-gray-400 mr-2" />
+          <div className="flex-1 max-w-2xl relative group hidden md:block">
+            <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+              <Search size={18} className="text-gray-400 group-focus-within:text-primary transition-colors" />
+            </div>
             <input 
               type="text" 
-              placeholder="Search notes, tags..."
-              className="bg-transparent border-none focus:outline-none w-full text-sm font-medium placeholder:text-gray-300"
+              placeholder="Search notes, tags, ideas..."
+              className={`w-full bg-gray-50/50 group-hover:bg-gray-100/50 border-2 border-transparent focus:border-primary/20 focus:bg-white pl-12 pr-14 py-3 rounded-[1.5rem] text-sm font-medium transition-all focus:outline-none focus:ring-8 focus:ring-primary/5`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <div className="h-6 w-px bg-gray-100 mx-2" />
-            <button 
-              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className={`p-2 rounded-full transition-colors relative ${showFilterDropdown ? 'bg-primary text-white' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
-            >
-              <Filter size={14} />
-              {statusFilter !== 'all' && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 border-2 border-white rounded-full" />
-              )}
-            </button>
-
-            {showFilterDropdown && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
-                <motion.div 
-                  initial={isMobile() ? { opacity: 0, scale: 0.9, x: '-50%', y: '-40%' } : { opacity: 0, y: 10, scale: 0.95 }}
-                  animate={isMobile() ? { opacity: 1, scale: 1, x: '-50%', y: '-50%' } : { opacity: 1, y: 0, scale: 1 }}
-                  exit={isMobile() ? { opacity: 0, scale: 0.9, x: '-50%', y: '-40%' } : { opacity: 0, y: 10, scale: 0.95 }}
-                  className={`${isMobile() ? 'fixed top-1/2 left-1/2 w-[92%] max-w-sm rounded-[2.5rem] p-8 max-h-[80vh] overflow-y-auto' : 'absolute top-full right-0 mt-2 p-6 rounded-3xl w-80 shadow-2xl'} bg-white/95 backdrop-blur-md border border-purple-50 z-50`}
-                >
-                  <div className="space-y-6">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Global Search</h4>
-                        <button 
-                          onClick={() => setSearchEverywhere(!searchEverywhere)}
-                          className={`w-10 h-5 rounded-full transition-all relative ${searchEverywhere ? 'bg-purple-500' : 'bg-gray-200'}`}
-                        >
-                          <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${searchEverywhere ? 'right-1' : 'left-1'}`} />
-                        </button>
-                      </div>
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">View Mode</h4>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button 
-                          onClick={() => { setViewMode('board'); setShowFilterDropdown(false); }}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'board' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-                        >
-                          <Grid size={14} /> Board
-                        </button>
-                        <button 
-                          onClick={() => { setViewMode('favorites'); setShowFilterDropdown(false); }}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'favorites' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-                        >
-                          <Star size={14} /> Favorites
-                        </button>
-                        <button 
-                          onClick={() => { setViewMode('due'); setShowFilterDropdown(false); }}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'due' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-                        >
-                          <Clock size={14} /> Upcoming
-                        </button>
-                        <button 
-                          onClick={() => { setViewMode('archive'); setShowFilterDropdown(false); }}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${viewMode === 'archive' ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
-                        >
-                          <Archive size={14} /> Archive
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Filter by Status</h4>
-                      <div className="space-y-1">
-                        <button 
-                          onClick={() => { setStatusFilter('all'); setShowFilterDropdown(false); }}
-                          className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === 'all' ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}
-                        >
-                          <span>All Statuses</span>
-                          {statusFilter === 'all' && <CheckCircle2 size={14} />}
-                        </button>
-                        {statuses.filter(s => s.isVisible).map((s) => (
-                          <button 
-                            key={s.id}
-                            onClick={() => { setStatusFilter(s.id); setShowFilterDropdown(false); }}
-                            className={`w-full text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors ${statusFilter === s.id ? 'bg-purple-50 text-purple-600' : 'hover:bg-gray-50 text-gray-700'}`}
-                          >
-                            <span>{s.label}</span>
-                            {statusFilter === s.id && <CheckCircle2 size={14} />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {isMobile() && (
-                      <button 
-                        onClick={() => setShowFilterDropdown(false)}
-                        className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold active:scale-95 transition-transform"
-                      >
-                        Close
-                      </button>
-                    )}
-                  </div>
-                </motion.div>
-              </>
-            )}
+            <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
+              <button 
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                className={`p-2 rounded-xl transition-all ${selectedTags.length > 0 || statusFilter !== 'all' ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:bg-white hover:shadow-sm hover:text-primary active:scale-90'}`}
+              >
+                <Filter size={16} />
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {currentFolderId && isAdmin && (
-              <div className="relative">
+          <div className="flex items-center gap-3">
+             <div className="hidden sm:flex items-center gap-1 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100/50">
                 <button 
-                  onClick={() => setShowBgPopover(!showBgPopover)}
-                  className={`p-2 rounded-full transition-colors ${showBgPopover ? 'bg-purple-100 text-purple-600' : 'hover:bg-purple-50 text-gray-400 hover:text-purple-500'}`}
-                  title="Board Background"
+                  onClick={() => {
+                    const newPanes = [{ id: `pane-1`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }];
+                    updatePanes(newPanes);
+                    updateActivePaneId(newPanes[0].id);
+                  }}
+                  className={`p-2 rounded-xl transition-all ${panes.length === 1 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary active:scale-90'}`}
+                  title="Single View"
                 >
-                  <Palette size={20} />
+                  <Minimize2 size={16} />
                 </button>
-                <AnimatePresence>
-                  {showBgPopover && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowBgPopover(false)} />
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute top-full right-0 mt-2 p-3 bg-white rounded-2xl shadow-2xl border border-purple-50 grid grid-cols-4 gap-2 z-50 w-48"
-                      >
-                        {['#F9F7FF', '#FFF7F7', '#F7FFF7', '#F7F7FF', '#FFFBF0', '#F0FBFF', '#FBF0FF', '#FFFFFF'].map(bg => (
-                          <button
-                            key={bg}
-                            onClick={() => {
-                              updateFolderBackground(currentFolderId, bg);
-                              setShowBgPopover(false);
-                            }}
-                            className="w-8 h-8 rounded-lg border border-gray-100 hover:scale-110 transition-transform"
-                            style={{ backgroundColor: bg }}
-                          />
-                        ))}
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-            <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-full border border-gray-100 hidden sm:flex">
-              <button 
-                onClick={() => handleToggleAllCollapse(true)}
-                className="p-1.5 hover:bg-primary/10 rounded-full text-gray-400 hover:text-primary transition-colors"
-                title="Collapse All"
-              >
-                <Minimize2 size={16} />
-              </button>
-              <button 
-                onClick={() => handleToggleAllCollapse(false)}
-                className="p-1.5 hover:bg-primary/10 rounded-full text-gray-400 hover:text-primary transition-colors"
-                title="Expand All"
-              >
-                <Maximize2 size={16} />
-              </button>
-              <div className="w-px h-4 bg-gray-200 mx-1" />
-              <button 
-                onClick={() => updateUserSettings({ gridColumns: 1 })}
-                className={`p-1.5 rounded-full transition-all ${userSettings.gridColumns === 1 ? 'bg-white shadow-sm text-primary' : 'text-gray-400 hover:text-gray-600'}`}
-                title="List View"
-              >
-                <List size={16} />
-              </button>
-              <button 
-                onClick={() => updateUserSettings({ gridColumns: 3 })}
-                className={`p-1.5 rounded-full transition-all ${userSettings.gridColumns > 1 ? 'bg-white shadow-sm text-primary' : 'text-gray-400 hover:text-gray-600'}`}
-                title="Grid View"
-              >
-                <Grid size={16} />
-              </button>
-              <div className="w-px h-4 bg-gray-200 mx-1" />
-              <div className="relative">
                 <button 
-                  onClick={() => setShowDensityPopover(!showDensityPopover)}
-                  className={`p-1.5 rounded-full transition-colors flex items-center gap-1.5 border ${showDensityPopover ? 'bg-purple-100 border-purple-200 text-purple-600' : 'bg-white/50 border-transparent text-gray-400 hover:text-purple-500 hover:border-purple-100'}`}
-                  title="Grid Density"
+                  onClick={() => {
+                    const newPanes = [
+                      { id: `pane-1`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
+                      { id: `pane-2`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
+                    ];
+                    updatePanes(newPanes);
+                    updateActivePaneId(newPanes[0].id);
+                  }}
+                  className={`p-2 rounded-xl transition-all ${panes.length === 2 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary active:scale-90'}`}
+                  title="Split View"
                 >
-                  <div className="flex items-end gap-0.5 h-3">
-                    {[1, 2, 3, 4].map(i => (
-                      <div 
-                        key={i} 
-                        className={`w-0.5 rounded-full transition-all ${userSettings.gridColumns >= (7-i*1.5) ? 'bg-purple-500' : 'bg-gray-300'}`} 
-                        style={{ height: `${25 + i * 25}%` }} 
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[10px] font-bold text-gray-500">{userSettings.gridColumns}</span>
+                  <Columns size={16} />
                 </button>
-                <AnimatePresence>
-                  {showDensityPopover && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowDensityPopover(false)} />
-                      <motion.div 
-                        initial={isMobile() ? { opacity: 0, scale: 0.9, x: '-50%', y: '-40%' } : { opacity: 0, y: 10, scale: 0.95 }}
-                        animate={isMobile() ? { opacity: 1, scale: 1, x: '-50%', y: '-50%' } : { opacity: 1, y: 0, scale: 1 }}
-                        exit={isMobile() ? { opacity: 0, scale: 0.9, x: '-50%', y: '-40%' } : { opacity: 0, y: 10, scale: 0.95 }}
-                        className={`${isMobile() ? 'fixed top-1/2 left-1/2 w-[92%] max-w-sm rounded-[2.5rem] p-8' : 'absolute top-full right-0 mt-2 p-4 rounded-3xl min-w-[220px]'} bg-white/95 backdrop-blur-md shadow-2xl border border-purple-50 z-50`}
-                      >
-                        <div className="flex items-center justify-between mb-6 px-1">
-                          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Grid Density</span>
-                          <span className="text-xs font-bold text-purple-500 bg-purple-50 px-4 py-1.5 rounded-full">{userSettings.gridColumns} Columns</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                          {[1, 2, 3, 4, 5, 6].map(cols => (
-                            <button 
-                              key={cols}
-                              onClick={() => {
-                                updateUserSettings({ gridColumns: cols });
-                                setShowDensityPopover(false);
-                              }}
-                              className={`h-14 flex items-center justify-center rounded-2xl text-base font-bold transition-all ${userSettings.gridColumns === cols ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-gray-400 hover:bg-purple-50 hover:text-purple-500'}`}
-                            >
-                              {cols}
-                            </button>
-                          ))}
-                        </div>
-                        {isMobile() && (
-                          <button 
-                            onClick={() => setShowDensityPopover(false)}
-                            className="w-full mt-8 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold active:scale-95 transition-transform"
-                          >
-                            Close
-                          </button>
-                        )}
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
-              <div className="w-px h-4 bg-gray-200 mx-1" />
-              <button 
-                onClick={() => {
-                  // Auto-arrange logic: Sort by pinned, then status, then date
-                  // This is a visual sort, we can update the userSettings to reflect a sort preference
-                  updateUserSettings({ sortBy: userSettings.sortBy === 'status' ? 'date' : 'status' });
-                }}
-                className={`p-1.5 rounded-full transition-all ${userSettings.sortBy === 'status' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
-                title="Sort by Status/Date"
-              >
-                <LayoutGrid size={16} />
-              </button>
-              <button 
-                onClick={() => updateUserSettings({ cardViewMode: userSettings.cardViewMode === 'compact' ? 'full' : 'compact' })}
-                className={`p-1.5 rounded-full transition-all ${userSettings.cardViewMode === 'compact' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
-                title="Toggle View Mode"
-              >
-                <Type size={16} />
-              </button>
-            </div>
+                <button 
+                  onClick={() => {
+                    const newPanes = [
+                      { id: `p1`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
+                      { id: `p2`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
+                      { id: `p3`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
+                      { id: `p4`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
+                    ];
+                    updatePanes(newPanes);
+                    updateActivePaneId(newPanes[0].id);
+                  }}
+                  className={`p-2 rounded-xl transition-all ${panes.length === 4 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary active:scale-90'}`}
+                  title="Mosaic 4-Pane"
+                >
+                  <LayoutGrid size={16} />
+                </button>
+             </div>
 
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setIsTaskSidebarOpen(!isTaskSidebarOpen)}
-                className={`p-2 rounded-full transition-colors hidden sm:flex ${isTaskSidebarOpen ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-primary/10 text-gray-600'}`}
-                title="Tasks"
-              >
-                <CheckSquare size={20} />
-              </button>
-              <button 
-                onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
-                className="bg-primary text-white p-2 sm:px-4 sm:py-2 rounded-full text-sm font-bold shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center gap-2 group hidden sm:flex"
-                title="New Note"
-              >
-                <Plus size={18} className="group-hover:rotate-90 transition-transform" /> 
-                <span className="hidden md:inline">New Note</span>
-              </button>
-              <button 
-                onClick={() => setShowSettingsModal(true)}
-                className="p-2 hover:bg-primary/10 rounded-full text-gray-600 transition-colors hidden sm:flex"
-                title="Settings"
-              >
-                <Settings size={20} />
-              </button>
-              <button 
-                onClick={handleLogout}
-                className="p-2 hover:bg-purple-50 rounded-full text-gray-600 transition-colors hidden sm:flex"
-                title="Logout"
-              >
-                <LogOut size={20} />
-              </button>
-              {isMobile() && (
+             <div className="hidden xl:flex items-center gap-1.5 px-3 border-x border-gray-200">
                 <button 
-                  onClick={() => setShowSettingsModal(true)}
-                  className="p-2 text-gray-600"
+                   onClick={() => setIsTaskSidebarOpen(!isTaskSidebarOpen)}
+                   className={`p-2.5 rounded-2xl transition-all ${isTaskSidebarOpen ? 'bg-primary text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50 active:scale-90'}`}
                 >
-                  <Settings size={24} />
+                   <CheckSquare size={20} />
                 </button>
-              )}
-            </div>
+                <button 
+                   onClick={() => setShowSettingsModal(true)}
+                   className="p-2.5 text-gray-400 hover:bg-gray-50 rounded-2xl transition-all active:scale-90"
+                >
+                   <Settings size={20} />
+                </button>
+             </div>
+
+             <button 
+                onClick={() => { setEditNoteData(null); resetNoteForm(); setIsQuickNote(false); setShowAddNoteModal(true); }}
+                className="relative bg-primary text-white h-12 px-6 rounded-[1.25rem] font-bold shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center gap-2.5 group overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                <Plus size={20} className="group-hover:rotate-90 transition-transform duration-500" />
+                <span className="hidden lg:inline">New Note</span>
+                <span className="lg:hidden">New</span>
+              </button>
           </div>
         </div>
       </header>
-
-      {/* Mobile Search Overlay */}
-      <AnimatePresence>
-        {isMobile() && showMobileSearch && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-20 left-0 right-0 p-4 bg-white/95 backdrop-blur-xl border-b border-purple-100 z-[49] shadow-xl"
-          >
-            <div className="relative flex items-center bg-gray-50 rounded-2xl border border-gray-200 px-4 py-3">
-              <Search size={18} className="text-gray-400 mr-3" />
-              <input 
-                autoFocus
-                type="text" 
-                placeholder="Search notes, tags..."
-                className="bg-transparent border-none focus:outline-none w-full text-sm font-medium"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="p-1 text-gray-400 hover:text-gray-600">
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <div className="flex w-full">
         {/* Sidebar - Desktop */}
@@ -3404,54 +3200,70 @@ function AppContent() {
         </aside>
 
         {/* Main Content */}
-        <main className={`flex-1 relative w-full transition-all duration-300 grid gap-2 p-2 ${panes.length === 1 ? 'grid-cols-1' : panes.length === 2 ? 'grid-cols-2' : 'grid-cols-2 grid-rows-2'}`}>
-          {panes.map(pane => (
-            <div 
-              key={pane.id}
-              className={`relative bg-white rounded-[2rem] overflow-hidden shadow-sm transition-all border-4 ${activePaneId === pane.id ? 'border-primary ring-8 ring-primary/5' : 'border-transparent opacity-95 grayscale-[0.1]'}`}
-            >
-              <PaneRenderer 
-                pane={pane}
-                isActive={activePaneId === pane.id}
-                onActivate={() => setActivePaneId(pane.id)}
-                notes={notes}
-                folders={folders}
-                projects={projects}
-                taskLists={taskLists}
-                tasks={tasks}
-                statuses={statuses}
-                userSettings={userSettings}
-                isAdmin={isAdmin}
-                onAddProjectItem={handleAddProjectItem}
-                isSplitView={panes.length > 1}
-                onEditNote={(note) => {
-                  setEditNoteData(note);
-                  setNoteTitle(note.title);
-                  setEditorContent(note.content);
-                  setNoteFolderId(note.folderId);
-                  setNoteTags(note.tags);
-                  setNoteDueDate(note.dueDate ? format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'yyyy-MM-dd') : '');
-                  setNoteImageUrl(note.imageUrl || '');
-                  setNoteStatus(note.status || statuses[0]?.id || 'todo');
-                  setNoteColor(note.color || '');
-                  setShowAddNoteModal(true);
-                }}
-                onFavoriteNote={toggleFavorite}
-                onArchiveNote={toggleArchive}
-                onDeleteNote={deleteNote}
-                onStatusChange={updateNoteStatus}
-                onColorChange={updateNoteColor}
-                onPinNote={handlePinNote}
-                onSizeNote={handleSizeNote}
-                onToggleCollapse={handleToggleCollapse}
-                onPopoutNote={handlePopout}
-                openWindow={openWindow}
-                setContextMenu={setContextMenu}
-                selectedTags={selectedTags}
-                searchQuery={searchQuery}
-              />
-            </div>
-          ))}
+        <main className={`flex-1 relative w-full h-[calc(100vh-80px)] overflow-hidden transition-all duration-300 p-2 ${panes.length === 1 ? 'flex' : panes.length === 2 ? 'grid grid-cols-2' : 'grid grid-cols-4'}`}>
+          {panes.map((pane, idx) => {
+            const isWideGrid = panes.length === 4 && !isMobile();
+            
+            return (
+              <div 
+                key={pane.id}
+                className={`relative bg-white rounded-[2.5rem] overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.02)] transition-all duration-500 border-4 h-full ${activePaneId === pane.id ? 'border-primary ring-8 ring-primary/5 z-10 scale-[0.995]' : 'border-transparent opacity-90 grayscale-[0.2] scale-[0.98]'}`}
+                onClick={() => updateActivePaneId(pane.id)}
+              >
+                {/* Minimal Header for Panes */}
+                {panes.length > 1 && (
+                   <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
+                     <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold ${activePaneId === pane.id ? 'bg-primary text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
+                       {idx + 1}
+                     </span>
+                   </div>
+                )}
+
+                <div className="h-full w-full overflow-y-auto no-scrollbar">
+                  <PaneRenderer 
+                    pane={pane}
+                    isActive={activePaneId === pane.id}
+                    onActivate={() => updateActivePaneId(pane.id)}
+                    notes={notes}
+                    folders={folders}
+                    projects={projects}
+                    taskLists={taskLists}
+                    tasks={tasks}
+                    statuses={statuses}
+                    userSettings={userSettings}
+                    isAdmin={isAdmin}
+                    onAddProjectItem={handleAddProjectItem}
+                    isSplitView={panes.length > 1}
+                    onEditNote={(note) => {
+                      setEditNoteData(note);
+                      setNoteTitle(note.title);
+                      setEditorContent(note.content);
+                      setNoteFolderId(note.folderId);
+                      setNoteTags(note.tags);
+                      setNoteDueDate(note.dueDate ? format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'yyyy-MM-dd') : '');
+                      setNoteImageUrl(note.imageUrl || '');
+                      setNoteStatus(note.status || statuses[0]?.id || 'todo');
+                      setNoteColor(note.color || '');
+                      setShowAddNoteModal(true);
+                    }}
+                    onFavoriteNote={toggleFavorite}
+                    onArchiveNote={toggleArchive}
+                    onDeleteNote={deleteNote}
+                    onStatusChange={updateNoteStatus}
+                    onColorChange={updateNoteColor}
+                    onPinNote={handlePinNote}
+                    onSizeNote={handleSizeNote}
+                    onToggleCollapse={handleToggleCollapse}
+                    onPopoutNote={handlePopout}
+                    openWindow={openWindow}
+                    setContextMenu={setContextMenu}
+                    selectedTags={selectedTags}
+                    searchQuery={searchQuery}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </main>
 
         <TaskSidebar 
