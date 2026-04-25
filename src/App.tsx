@@ -1817,12 +1817,16 @@ function AppContent() {
   ]);
   const [activePaneId, setActivePaneId] = useState<string>('pane-1');
 
-  const updatePanes = async (newPanes: WorkspacePaneConfig[]) => {
+  const updatePanes = async (newPanes: WorkspacePaneConfig[], newActivePaneId?: string) => {
     setPanes(newPanes);
+    if (newActivePaneId) setActivePaneId(newActivePaneId);
+    
     if (!user || !isAdmin) return;
     const sDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
     try {
-      await updateDoc(sDoc, { 'userSettings.panes': newPanes });
+      const updates: any = { 'userSettings.panes': newPanes };
+      if (newActivePaneId) updates['userSettings.activePaneId'] = newActivePaneId;
+      await updateDoc(sDoc, updates);
     } catch (err) {
       console.error("Error updating panes:", err);
     }
@@ -1866,6 +1870,10 @@ function AppContent() {
 
   const setCurrentProjectId = (id: string | null) => {
     updatePaneState(activePaneId, { currentProjectId: id, currentFolderId: null, viewMode: 'project' });
+  };
+
+  const resetActivePane = () => {
+    updatePaneState(activePaneId, { currentFolderId: null, currentProjectId: null, viewMode: 'board', searchQuery: '' });
   };
 
   const toggleFolderExpanded = (id: string) => {
@@ -2449,9 +2457,6 @@ function AppContent() {
           
           // Initialize startup view once
           if (!hasInitializedStartup.current) {
-            if (data.userSettings.startupFolderId) {
-              setCurrentFolderId(data.userSettings.startupFolderId);
-            }
             if (data.userSettings.startupTaskListId) {
               setActiveTaskListId(data.userSettings.startupTaskListId);
             }
@@ -2939,7 +2944,7 @@ function AppContent() {
               </button>
               <div 
                 className="group flex items-center gap-3 cursor-pointer" 
-                onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}
+                onClick={resetActivePane}
               >
                 <div className="w-10 h-10 bg-primary/10 text-primary rounded-[1rem] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500">
                   <PlusCircle size={24} />
@@ -3000,9 +3005,8 @@ function AppContent() {
              <div className="hidden lg:flex items-center gap-1.5 p-1 rounded-2xl bg-gray-100/50 backdrop-blur-md border border-gray-200/50">
                 <button 
                   onClick={() => {
-                    const newPanes = [{ id: `pane-1`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }];
-                    updatePanes(newPanes);
-                    updateActivePaneId(newPanes[0].id);
+                    const newPanes = [{ id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }];
+                    updatePanes(newPanes, newPanes[0].id);
                   }}
                   className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${panes.length === 1 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary'}`}
                 >
@@ -3011,11 +3015,10 @@ function AppContent() {
                 <button 
                   onClick={() => {
                     const newPanes = [
-                      { id: `pane-1`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
-                      { id: `pane-2`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
+                      { id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
+                      { id: 'pane-2', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
                     ];
-                    updatePanes(newPanes);
-                    updateActivePaneId(newPanes[0].id);
+                    updatePanes(newPanes, newPanes[0].id);
                   }}
                   className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${panes.length === 2 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary'}`}
                 >
@@ -3024,13 +3027,12 @@ function AppContent() {
                 <button 
                   onClick={() => {
                     const newPanes = [
-                      { id: `p1`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
-                      { id: `p2`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
-                      { id: `p3`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
-                      { id: `p4`, viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
+                      { id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
+                      { id: 'pane-2', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
+                      { id: 'pane-3', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
+                      { id: 'pane-4', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
                     ];
-                    updatePanes(newPanes);
-                    updateActivePaneId(newPanes[0].id);
+                    updatePanes(newPanes, newPanes[0].id);
                   }}
                   className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${panes.length === 4 ? 'bg-white text-primary shadow-sm' : 'text-gray-400 hover:text-primary'}`}
                 >
@@ -3161,13 +3163,12 @@ function AppContent() {
             {/* Split Screen Options */}
             {!userSettings.isSidebarCollapsed && (
               <div className="pt-4 border-t border-gray-100">
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 px-2 text-center text-gray-400">Split View</h3>
+                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 px-2 text-center">Split View</h3>
                 <div className="flex gap-2 px-2">
                   <button 
                     onClick={() => {
                         const newPanes = [{ id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }];
-                        updatePanes(newPanes);
-                        updateActivePaneId(newPanes[0].id);
+                        updatePanes(newPanes, newPanes[0].id);
                     }}
                     className={`flex-1 p-2 rounded-lg border flex items-center justify-center transition-all ${panes.length === 1 ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
                     title="Single"
@@ -3181,8 +3182,7 @@ function AppContent() {
                         { id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
                         { id: 'pane-2', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
                       ];
-                      updatePanes(newPanes);
-                      updateActivePaneId(newPanes[0].id);
+                      updatePanes(newPanes, newPanes[0].id);
                     }}
                     className={`flex-1 p-2 rounded-lg border flex items-center justify-center transition-all ${panes.length === 2 ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
                     title="Split"
@@ -3198,8 +3198,7 @@ function AppContent() {
                         { id: 'pane-3', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
                         { id: 'pane-4', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
                       ];
-                      updatePanes(newPanes);
-                      updateActivePaneId(newPanes[0].id);
+                      updatePanes(newPanes, newPanes[0].id);
                     }}
                     className={`flex-1 p-2 rounded-lg border flex items-center justify-center transition-all ${panes.length === 4 ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
                     title="Grid"
