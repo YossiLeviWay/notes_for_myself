@@ -660,12 +660,12 @@ const FloatingWindow = React.memo(({
           zIndex: win.zIndex,
           position: 'fixed'
         }}
-        className={`${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} ambient-shadow flex flex-col overflow-hidden`}
+        className={`${userSettings.theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} ambient-shadow flex flex-col overflow-hidden border shadow-2xl transition-shadow`}
         onClick={onFocus}
       >
       {/* Header / Drag Handle */}
       <div 
-        className={`p-4 border-b flex items-center justify-between select-none ${userSettings.theme === 'dark' ? 'bg-gray-800/40' : 'bg-gray-50/40'} ${(mobile || win.isMaximized) ? '' : 'cursor-move'}`}
+        className={`p-4 border-b flex items-center justify-between select-none ${userSettings.theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'} ${(mobile || win.isMaximized) ? '' : 'cursor-move'}`}
         onMouseDown={(e) => {
           if (mobile || win.isMaximized) return;
           const startX = e.clientX - win.x;
@@ -741,7 +741,7 @@ const FloatingWindow = React.memo(({
       {/* Content */}
       <div className="flex-1 flex overflow-hidden">
         <div 
-          className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 max-w-none w-full note-content ${!isQuickEditing ? 'prose prose-lg' : ''} ${userSettings.theme === 'dark' ? 'bg-gray-900/40' : 'bg-white/40'}`} 
+          className={`flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-12 max-w-none w-full note-content ${!isQuickEditing ? 'prose prose-lg px-6' : ''} ${userSettings.theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900'}`} 
           dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
           style={{ 
             fontFamily: userSettings.defaultFont, 
@@ -2956,7 +2956,7 @@ function AppContent() {
               </div>
             </div>
 
-            <div className="hidden lg:flex items-center gap-1 bg-gray-50/50 p-1.5 rounded-2xl border border-gray-100/50">
+            <div className="hidden lg:flex items-center gap-1 bg-gray-50 p-1.5 rounded-2xl border border-gray-100 shadow-sm">
               <button 
                 onClick={handleUndo}
                 disabled={historyIndex < 0}
@@ -2983,7 +2983,7 @@ function AppContent() {
             <input 
               type="text" 
               placeholder="Search notes, tags, ideas..."
-              className={`w-full bg-gray-50/50 group-hover:bg-gray-100/50 border-2 border-transparent focus:border-primary/20 focus:bg-white pl-12 pr-14 py-3 rounded-[1.5rem] text-sm font-medium transition-all focus:outline-none focus:ring-8 focus:ring-primary/5`}
+              className={`w-full bg-gray-50 group-hover:bg-gray-100 border-2 border-transparent focus:border-primary/20 focus:bg-white pl-12 pr-14 py-3 rounded-[1.5rem] text-sm font-medium transition-all focus:outline-none focus:ring-8 focus:ring-primary/5 shadow-sm`}
               value={activePane.searchQuery || searchQuery}
               onChange={(e) => {
                 const val = e.target.value;
@@ -3002,7 +3002,7 @@ function AppContent() {
           </div>
 
           <div className="flex items-center gap-4">
-             <div className="hidden lg:flex items-center gap-1.5 p-1 rounded-2xl bg-gray-100/50 backdrop-blur-md border border-gray-200/50">
+             <div className="hidden lg:flex items-center gap-1.5 p-1 rounded-2xl bg-gray-100 border border-gray-200 shadow-sm">
                 <button 
                   onClick={() => {
                     const newPanes = [{ id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }];
@@ -3396,9 +3396,9 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-[92%] ${isQuickNote ? 'max-w-xl' : 'max-w-5xl'} rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[80vh] md:h-auto md:max-h-[90vh] border border-white/20`}
+              className={`relative ${userSettings.theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} w-[92%] ${isQuickNote ? 'max-w-xl' : 'max-w-5xl'} rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[80vh] md:h-auto md:max-h-[90vh] border`}
             >
-              <div className="p-5 md:p-6 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <div className={`p-5 md:p-6 border-b flex items-center justify-between ${userSettings.theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                 <div>
                   <h2 className="text-xl md:text-2xl font-display font-bold text-gray-900">{editNoteData ? 'Edit Note' : (isQuickNote ? 'Quick Note' : 'Create New Note')}</h2>
                   <p className="text-gray-500 text-xs mt-1">Capture your thoughts and organize them beautifully.</p>
@@ -3408,19 +3408,19 @@ function AppContent() {
                 </button>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-6">
+              <div className={`flex-1 overflow-y-auto p-5 md:p-6 space-y-6 ${userSettings.theme === 'dark' ? 'bg-gray-900' : 'bg-white'}`}>
                 {isQuickNote ? (
                   <div className="space-y-4">
                     <input 
                       type="text" 
                       placeholder="Title..."
-                      className="w-full p-4 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-lg"
+                      className={`w-full p-4 border rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-lg ${userSettings.theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                       value={noteTitle}
                       onChange={(e) => setNoteTitle(e.target.value)}
                     />
                     <div 
                       ref={quillWrapperRef}
-                      className="min-h-[300px] border border-gray-200 rounded-2xl overflow-hidden bg-white/80 backdrop-blur-sm shadow-inner"
+                      className={`min-h-[300px] border rounded-2xl overflow-hidden shadow-inner ${userSettings.theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
                     >
                       <ReactQuill 
                         theme="snow" 
@@ -3439,7 +3439,7 @@ function AppContent() {
                         <input 
                           type="text" 
                           placeholder="Enter note title..."
-                          className="w-full p-3.5 bg-white/50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-base"
+                          className={`w-full p-3.5 border rounded-2xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-base ${userSettings.theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                           value={noteTitle}
                           onChange={(e) => setNoteTitle(e.target.value)}
                         />
@@ -3610,9 +3610,9 @@ function AppContent() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className={`relative ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-[92%] max-w-sm rounded-[2rem] shadow-2xl p-6 border border-white/20`}
+              className={`relative ${userSettings.theme === 'dark' ? 'bg-gray-800' : 'bg-white'} w-[92%] max-w-sm rounded-[2rem] shadow-2xl p-6 border ${userSettings.theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}
             >
-              <h2 className="text-xl font-bold mb-4 tracking-tight">{editFolderData ? 'Edit Folder' : 'New Folder'}</h2>
+              <h2 className={`text-xl font-bold mb-4 tracking-tight ${userSettings.theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{editFolderData ? 'Edit Folder' : 'New Folder'}</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Folder Name</label>
@@ -3620,7 +3620,7 @@ function AppContent() {
                     type="text" 
                     id="folderName"
                     placeholder="Enter folder name..."
-                    className="w-full p-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-sm"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-sm ${userSettings.theme === 'dark' ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                     defaultValue={editFolderData?.name}
                   />
                 </div>
@@ -3628,7 +3628,7 @@ function AppContent() {
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Parent Folder</label>
                   <select 
                     id="folderParent"
-                    className="w-full p-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-xs font-bold"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all text-xs font-bold ${userSettings.theme === 'dark' ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                     defaultValue={editFolderData?.parentId || ''}
                   >
                     <option value="">Root</option>
@@ -3641,7 +3641,7 @@ function AppContent() {
                     type="text" 
                     id="folderWallpaper"
                     placeholder="linear-gradient(...) or image URL"
-                    className="w-full p-3 bg-white/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-xs"
+                    className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-primary focus:outline-none transition-all font-bold text-xs ${userSettings.theme === 'dark' ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
                     defaultValue={editFolderData?.wallpaper}
                   />
                 </div>
@@ -3806,11 +3806,11 @@ function AppContent() {
                   left: Math.min(contextMenu.x, window.innerWidth - 260), 
                   top: Math.min(contextMenu.y, window.innerHeight - 400) 
                 }}
-                className="fixed z-[501] w-64 bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white p-2 overflow-hidden"
+                className={`fixed z-[501] w-64 ${userSettings.theme === 'dark' ? 'bg-gray-800 border-gray-700 shadow-2xl' : 'bg-white border-gray-100 shadow-2xl'} rounded-[2rem] border p-2 overflow-hidden`}
               >
                 {contextMenu.type === 'board' ? (
                   <div className="space-y-1">
-                    <div className="p-3 border-b border-gray-50 mb-1">
+                    <div className={`p-3 border-b mb-1 ${userSettings.theme === 'dark' ? 'border-gray-700' : 'border-gray-50'}`}>
                       <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Board Actions</h4>
                     </div>
                     <button 
@@ -4175,9 +4175,9 @@ function SettingsModal({
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className={`relative ${localSettings.theme === 'dark' ? 'glass-dark' : 'glass'} w-[92%] max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[80vh] md:h-auto md:max-h-[90vh] border border-white/20`}
+            className={`relative ${localSettings.theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} w-[92%] max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[80vh] md:h-auto md:max-h-[90vh] border`}
           >
-              <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/5">
+              <div className={`p-6 border-b flex items-center justify-between ${localSettings.theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                 <div className="flex items-center gap-4">
                   <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
                     <Settings size={20} />
