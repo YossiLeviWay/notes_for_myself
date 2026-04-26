@@ -77,7 +77,6 @@ import {
   ListOrdered,
   Palette,
   ChevronLeft,
-  LayoutGrid,
   Columns,
   Link as LinkIcon,
   Share2,
@@ -88,6 +87,7 @@ import { format, isAfter, isBefore, startOfToday, endOfToday, addDays } from 'da
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { motion, AnimatePresence } from 'motion/react';
+import PreviewModal from './components/PreviewModal';
 
 const appId = 'notes-for-myself-app';
 
@@ -119,7 +119,7 @@ enum OperationType {
   WRITE = 'write',
 }
 
-interface Note {
+export interface Note {
   id: string;
   title: string;
   content: string;
@@ -190,6 +190,25 @@ interface StatusOption {
   background?: string;
 }
 
+export interface ProjectItem {
+  id: string;
+  type: 'note' | 'folder' | 'task' | 'image';
+  refId: string;
+  name: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  isFavorite?: boolean;
+  items?: ProjectItem[];
+  createdAt: any;
+  uid: string;
+}
+
 const PASTEL_COLORS = [
   { name: 'Default', value: '' },
   { name: 'Pink', value: 'rgba(255, 209, 220, 0.4)' },
@@ -202,7 +221,7 @@ const PASTEL_COLORS = [
   { name: 'Lavender', value: 'rgba(230, 230, 250, 0.4)' }
 ];
 
-interface UserSettings {
+export interface UserSettings {
   defaultFont: string;
   defaultSize: string;
   defaultAlignment: 'left' | 'center' | 'right' | 'justify';
@@ -229,10 +248,11 @@ interface WorkspaceLayout {
   panes: WorkspacePaneConfig[];
 }
 
-interface WorkspacePaneConfig {
+export interface WorkspacePaneConfig {
   id: string;
   viewMode: string;
   currentFolderId: string | null;
+  currentProjectId?: string | null;
   searchQuery: string;
 }
 
@@ -249,7 +269,7 @@ interface ActiveWindow {
   zIndex: number;
 }
 
-interface FolderType {
+export interface FolderType {
   id: string;
   name: string;
   parentId: string | null;
@@ -279,7 +299,7 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
   onContextMenu: (x: number, y: number, type: 'note' | 'folder' | 'board', id: string) => void,
   key?: string
 }) => {
-  const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
+  const currentStatus = statuses.find(s => s.id === note.status) || statuses[0] || { id: 'todo', label: 'Todo', color: '#3B82F6' };
 
   const sizeClasses = {
     sm: 'col-span-1 row-span-1 min-h-[60px]',
@@ -399,7 +419,7 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
             )}
             <div className="flex items-center gap-1.5">
               <Clock size={12} />
-              {note.createdAt ? format(note.createdAt.toDate(), 'MMM d') : 'Now'}
+              {note.createdAt && note.createdAt.toDate ? format(note.createdAt.toDate(), 'MMM d') : 'Now'}
             </div>
           </div>
         </div>
@@ -1523,8 +1543,65 @@ const FolderTreeItem = ({ folder, allFolders, level, currentFolderId, expandedFo
           expandedFolderIds={expandedFolderIds}
           onSelect={onSelect}
           onToggle={onToggle}
+          onContextMenu={onContextMenu}
         />
       ))}
+    </div>
+  );
+};
+
+const ProjectDetailView = ({ project, notes, folders, openWindow, setCurrentFolderId }: { 
+  project: Project, 
+  notes: Note[], 
+  folders: FolderType[], 
+  openWindow: (id: string) => void,
+  setCurrentFolderId: (id: string) => void
+}) => {
+  return (
+    <div className="space-y-8">
+      <div className="bg-gray-50 rounded-3xl p-8 border border-gray-100 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+          <LayoutGrid size={120} className="text-primary" />
+        </div>
+        <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-3">Project Overview</h3>
+        <h2 className="text-4xl font-display font-black text-gray-900 tracking-tight mb-4">{project.name}</h2>
+        <p className="text-gray-500 max-w-2xl font-medium leading-relaxed">{project.description || 'No description provided.'}</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {project.items?.map(item => {
+          const isNote = item.type === 'note';
+          const isFolder = item.type === 'folder';
+          const data = isNote ? notes.find(n => n.id === item.refId) : folders.find(f => f.id === item.refId);
+          
+          if (!data) return null;
+
+          return (
+            <motion.div 
+              key={item.id}
+              whileHover={{ y: -4, shadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}
+              onClick={() => isNote ? openWindow(item.refId) : setCurrentFolderId(item.refId)}
+              className="bg-white p-6 rounded-3xl border-2 border-gray-50 shadow-sm transition-all cursor-pointer flex items-center gap-4 group"
+            >
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${isNote ? 'bg-purple-100 text-purple-600 group-hover:bg-purple-600 group-hover:text-white' : 'bg-amber-100 text-amber-600 group-hover:bg-amber-600 group-hover:text-white'}`}>
+                {isNote ? <Type size={20} /> : <Folder size={20} />}
+              </div>
+              <div>
+                <h4 className="font-bold text-gray-900 line-clamp-1">{isNote ? (data as Note).title : (data as FolderType).name}</h4>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.type}</p>
+              </div>
+              <ChevronRight size={16} className="ml-auto text-gray-300 group-hover:text-primary transition-colors" />
+            </motion.div>
+          );
+        })}
+      </div>
+      
+      {(!project.items || project.items.length === 0) && (
+        <div className="text-center py-20 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
+          <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">No items in this project yet.</p>
+          <p className="text-[10px] text-gray-400 mt-2">Drag notes or folders here to add them.</p>
+        </div>
+      )}
     </div>
   );
 };
@@ -1535,6 +1612,7 @@ const PaneRenderer = ({
   onActivate,
   notes,
   folders,
+  projects,
   taskLists,
   tasks,
   statuses,
@@ -1551,6 +1629,8 @@ const PaneRenderer = ({
   onToggleCollapse,
   onPopoutNote,
   openWindow,
+  onSelectFolder,
+  onSelectProject,
   setContextMenu,
   selectedTags,
   searchQuery,
@@ -1561,6 +1641,7 @@ const PaneRenderer = ({
   onActivate: () => void;
   notes: Note[];
   folders: FolderType[];
+  projects: Project[];
   taskLists: TaskList[];
   tasks: Task[];
   statuses: StatusOption[];
@@ -1577,6 +1658,8 @@ const PaneRenderer = ({
   onToggleCollapse: (noteId: string, collapsed: boolean) => void;
   onPopoutNote: (id: string) => void;
   openWindow: (id: string) => void;
+  onSelectFolder: (id: string | null) => void;
+  onSelectProject: (id: string | null) => void;
   setContextMenu: (menu: any) => void;
   selectedTags: string[];
   searchQuery: string;
@@ -1623,7 +1706,8 @@ const PaneRenderer = ({
                 </span>
               </div>
               <h2 className="text-2xl font-display font-bold text-gray-900 tracking-tight leading-none">
-                {pane.viewMode === 'board' ? (pane.currentFolderId ? folders.find(f => f.id === pane.currentFolderId)?.name : 'Workspace') : 
+                {pane.viewMode === 'project' ? (pane.currentProjectId ? projects.find(p => p.id === pane.currentProjectId)?.name : 'Project') :
+                  pane.viewMode === 'board' ? (pane.currentFolderId ? folders.find(f => f.id === pane.currentFolderId)?.name : 'Workspace') : 
                   pane.viewMode === 'archive' ? 'Archive' : 
                   pane.viewMode === 'favorites' ? 'Favorites' : 
                   pane.viewMode === 'workflow' ? 'Workflow' : 'Upcoming'}
@@ -1638,7 +1722,15 @@ const PaneRenderer = ({
             </div>
           </div>
 
-          {pane.viewMode === 'workflow' ? (
+          {pane.viewMode === 'project' ? (
+            <ProjectDetailView 
+              project={projects.find(p => p.id === pane.currentProjectId)!}
+              notes={notes}
+              folders={folders}
+              openWindow={openWindow}
+              setCurrentFolderId={onSelectFolder}
+            />
+          ) : pane.viewMode === 'workflow' ? (
             <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
                {statuses.filter(s => s.isVisible).map((status) => (
                 <div key={status.id} className="bg-gray-100/50 rounded-3xl p-3 min-w-[280px] flex flex-col gap-3">
@@ -1722,6 +1814,8 @@ function AppContent() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [folders, setFolders] = useState<FolderType[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [currentProjectId, setGlobalProjectId] = useState<string | null>(null);
   const [panes, setPanes] = useState<WorkspacePaneConfig[]>([
     { id: 'pane-1', viewMode: 'board', currentFolderId: null, searchQuery: '' }
   ]);
@@ -1758,7 +1852,7 @@ function AppContent() {
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [isQuickNote, setIsQuickNote] = useState(false);
 
-  const activePane = panes.find(p => p.id === activePaneId) || panes[0];
+  const activePane = panes.find(p => p.id === activePaneId) || panes[0] || { id: 'pane-1', viewMode: 'board', currentFolderId: null, searchQuery: '' };
   const viewMode = activePane.viewMode;
   const currentFolderId = activePane.currentFolderId;
 
@@ -1772,11 +1866,15 @@ function AppContent() {
   };
 
   const setCurrentFolderId = (id: string | null) => {
-    updatePaneState(activePaneId, { currentFolderId: id, viewMode: 'board' });
+    updatePaneState(activePaneId, { currentFolderId: id, currentProjectId: null, viewMode: 'board' });
+  };
+
+  const setCurrentProjectId = (id: string | null) => {
+    updatePaneState(activePaneId, { currentProjectId: id, currentFolderId: null, viewMode: id ? 'project' : 'board' });
   };
 
   const resetActivePane = () => {
-    updatePaneState(activePaneId, { currentFolderId: null, viewMode: 'board', searchQuery: '' });
+    updatePaneState(activePaneId, { currentFolderId: null, currentProjectId: null, viewMode: 'board', searchQuery: '' });
   };
 
   const toggleFolderExpanded = (id: string) => {
@@ -1787,6 +1885,8 @@ function AppContent() {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [editNoteData, setEditNoteData] = useState<Note | null>(null);
   const [editFolderData, setEditFolderData] = useState<FolderType | null>(null);
+  const [editProjectData, setEditProjectData] = useState<Project | null>(null);
+  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [loginPassword, setLoginPassword] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchEverywhere, setSearchEverywhere] = useState(false);
@@ -2241,7 +2341,7 @@ function AppContent() {
     }
   };
 
-  const handleAddProjectItem = async (projectId: string, item: ProjectItem) => {
+  const handleAddProjectItem = async (projectId: string, item: Omit<ProjectItem, 'id'>) => {
     if (!user || !isAdmin) return;
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
@@ -2640,6 +2740,17 @@ function AppContent() {
       setShowAddFolderModal(false);
     } catch (err) {
       handleFirestoreError(err, editFolderData ? OperationType.UPDATE : OperationType.CREATE, path);
+    }
+  };
+
+  const deleteProject = async (id: string) => {
+    if (!isAdmin || !confirm("Delete this project? Items inside will not be deleted.")) return;
+    const path = `artifacts/${appId}/public/data/projects/${id}`;
+    try {
+      await deleteDoc(doc(db, path));
+      if (currentProjectId === id) setGlobalProjectId(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
     }
   };
 
@@ -3210,6 +3321,7 @@ function AppContent() {
                     onActivate={() => updateActivePaneId(pane.id)}
                     notes={notes}
                     folders={folders}
+                    projects={projects}
                     taskLists={taskLists}
                     tasks={tasks}
                     statuses={statuses}
@@ -3238,6 +3350,8 @@ function AppContent() {
                     onToggleCollapse={handleToggleCollapse}
                     onPopoutNote={handlePopout}
                     openWindow={openWindow}
+                    onSelectFolder={setCurrentFolderId}
+                    onSelectProject={setCurrentProjectId}
                     setContextMenu={setContextMenu}
                     selectedTags={selectedTags}
                     searchQuery={searchQuery}
@@ -3901,7 +4015,7 @@ function AppContent() {
                     </button>
                     <button 
                       onClick={() => {
-                        if (contextMenu.id) handleDeleteProject(contextMenu.id);
+                        if (contextMenu.id) deleteProject(contextMenu.id);
                         setContextMenu(null);
                       }}
                       className="w-full text-left px-4 py-3 mt-1 hover:bg-rose-500 hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl text-rose-500"
@@ -3942,7 +4056,7 @@ function AppContent() {
                     </button>
                     <button 
                       onClick={() => {
-                        if (contextMenu.id) handleDeleteFolder(contextMenu.id);
+                        if (contextMenu.id) deleteFolder(contextMenu.id);
                         setContextMenu(null);
                       }}
                       className="w-full text-left px-4 py-3 mt-1 hover:bg-rose-500 hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl text-rose-500"
@@ -4448,107 +4562,5 @@ function SettingsModal({
         </div>
       )}
     </AnimatePresence>
-  );
-}
-
-interface PreviewModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  data: { type: 'folder' | 'project', id: string, name: string } | null;
-  notes: Note[];
-  folders: FolderType[];
-  projects: Project[];
-  userSettings: UserSettings;
-  onOpenNote: (id: string) => void;
-}
-
-function PreviewModal({ isOpen, onClose, data, notes, folders, projects, userSettings, onOpenNote }: PreviewModalProps) {
-  if (!isOpen || !data) return null;
-
-  const getNotes = () => {
-    if (data.type === 'folder') {
-      const getChildFolderIds = (parentId: string): string[] => {
-        const children = folders.filter(f => f.parentId === parentId);
-        return [parentId, ...children.flatMap(child => getChildFolderIds(child.id))];
-      };
-      const allFolderIds = getChildFolderIds(data.id);
-      return notes.filter(n => allFolderIds.includes(n.folderId || ''));
-    } else {
-      const project = projects.find(p => p.id === data.id);
-      if (!project) return [];
-      const noteIds = project.items?.filter(item => item.type === 'note').map(item => item.refId) || [];
-      return notes.filter(n => noteIds.includes(n.id));
-    }
-  };
-
-  const filteredNotes = getNotes();
-
-  return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-8">
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/60 backdrop-blur-md"
-        onClick={onClose}
-      />
-      
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className={`relative w-full max-w-6xl max-h-[90vh] ${userSettings.theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} rounded-[3rem] shadow-2xl border flex flex-col overflow-hidden`}
-      >
-        <div className="p-8 border-b flex justify-between items-center bg-gray-50/50">
-          <div>
-            <div className="flex items-center gap-3 text-primary font-black uppercase text-xs tracking-widest mb-2">
-              <Eye size={16} /> {data.type} Preview
-            </div>
-            <h2 className="text-3xl font-black tracking-tight">{data.name}</h2>
-          </div>
-          <button 
-            onClick={onClose}
-            className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-center justify-center hover:bg-gray-50 transition-all hover:rotate-90"
-          >
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-8 no-scrollbar">
-          {filteredNotes.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-12">
-              <div className="w-20 h-20 bg-gray-50 text-gray-200 rounded-[2rem] flex items-center justify-center mb-6">
-                <Grid size={40} />
-              </div>
-              <h3 className="text-xl font-bold text-gray-400">No notes found for this {data.type}</h3>
-              <p className="text-gray-400 mt-2">Try adding some notes to this {data.type} to see them here.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredNotes.map(note => (
-                <motion.div 
-                  key={note.id}
-                  whileHover={{ y: -5 }}
-                  onClick={() => { onOpenNote(note.id); onClose(); }}
-                  className={`p-6 rounded-[2rem] cursor-pointer transition-all border-2 border-transparent hover:border-primary/20 ${userSettings.theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} shadow-sm hover:shadow-xl`}
-                  style={{ borderLeftColor: note.color || '#3b82f6' }}
-                >
-                  <h3 className="font-black text-lg mb-2 line-clamp-1">{note.title}</h3>
-                  <div className="text-sm text-gray-500 line-clamp-3 mb-4 no-scrollbar prose prose-sm overflow-hidden" dangerouslySetInnerHTML={{ __html: note.content }} />
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                       {note.updatedAt?.toDate ? format(note.updatedAt.toDate(), 'MMM d, yyyy') : 'No date'}
-                    </span>
-                    <div className="w-8 h-8 rounded-xl bg-primary/5 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
-                      <ExternalLink size={14} />
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
-      </motion.div>
-    </div>
   );
 }

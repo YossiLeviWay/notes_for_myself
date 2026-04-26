@@ -1,3 +1,9 @@
+import React from 'react';
+import { motion } from 'motion/react';
+import { X, Eye, Grid, ExternalLink } from 'lucide-react';
+import { format } from 'date-fns';
+import { Note, FolderType, Project, UserSettings } from '../App';
+
 interface PreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -9,7 +15,7 @@ interface PreviewModalProps {
   onOpenNote: (id: string) => void;
 }
 
-function PreviewModal({ isOpen, onClose, data, notes, folders, projects, userSettings, onOpenNote }: PreviewModalProps) {
+export default function PreviewModal({ isOpen, onClose, data, notes, folders, projects, userSettings, onOpenNote }: PreviewModalProps) {
   if (!isOpen || !data) return null;
 
   const getNotes = () => {
