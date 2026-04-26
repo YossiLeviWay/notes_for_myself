@@ -62,6 +62,8 @@ import {
   Undo2,
   Redo2,
   FolderInput,
+  Eye,
+  LayoutGrid,
   Table as TableIcon,
   Type,
   Bold,
@@ -218,32 +220,19 @@ interface UserSettings {
   boardTheme: string;
   panes?: WorkspacePaneConfig[];
   activePaneId?: string;
+  savedLayouts?: WorkspaceLayout[];
 }
 
-interface ProjectItem {
-  id?: string;
-  type: 'note' | 'folder' | 'task' | 'taskList' | 'image';
-  refId?: string;
-  name: string;
-  url?: string;
-}
-
-interface Project {
+interface WorkspaceLayout {
   id: string;
   name: string;
-  description: string;
-  color: string;
-  createdAt: any;
-  updatedAt: any;
-  uid: string;
-  items: ProjectItem[];
+  panes: WorkspacePaneConfig[];
 }
 
 interface WorkspacePaneConfig {
   id: string;
   viewMode: string;
   currentFolderId: string | null;
-  currentProjectId: string | null;
   searchQuery: string;
 }
 
@@ -287,7 +276,7 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
   viewMode: 'compact' | 'full',
   onClick: () => void,
   userSettings: UserSettings,
-  onContextMenu: (x: number, y: number, noteId: string) => void,
+  onContextMenu: (x: number, y: number, type: 'note' | 'folder' | 'board', id: string) => void,
   key?: string
 }) => {
   const currentStatus = statuses.find(s => s.id === note.status) || statuses[0];
@@ -298,6 +287,8 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
     lg: 'col-span-1 md:col-span-2 row-span-2 min-h-[200px]'
   };
 
+  const isDark = userSettings.theme === 'dark';
+
   return (
     <motion.div 
       layout
@@ -307,178 +298,115 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
       onContextMenu={(e) => {
         if (isAdmin) {
           e.preventDefault();
-          onContextMenu(e.clientX, e.clientY, note.id);
+          onContextMenu(e.clientX, e.clientY, 'note', note.id);
         }
       }}
-      className={`group rounded-2xl overflow-hidden card-hover border transition-all duration-500 flex flex-col backdrop-blur-xl relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-4 ring-primary/30 ring-offset-4' : ''}`}
+      className={`group rounded-[2rem] overflow-hidden border-2 transition-all duration-300 flex flex-col relative cursor-pointer ${note.isCollapsed ? 'min-h-0 h-fit' : sizeClasses[note.size || 'sm']} ${note.isPinned ? 'ring-8 ring-primary/5' : ''}`}
       style={{ 
-        backgroundColor: note.color ? note.color + '11' : (userSettings.theme === 'dark' ? 'rgba(31, 41, 55, 0.4)' : 'rgba(255, 255, 255, 0.4)'),
-        borderColor: note.color ? note.color + '33' : 'rgba(255, 255, 255, 0.2)'
+        backgroundColor: note.color ? note.color : (isDark ? '#111827' : '#FFFFFF'),
+        borderColor: note.isPinned ? '#9D85FF' : (isDark ? '#374151' : '#F3F4F6'),
+        boxShadow: isDark ? '0 10px 30px -10px rgba(0,0,0,0.5)' : '0 10px 30px -10px rgba(0,0,0,0.05)'
       }}
       onClick={onClick}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData('noteId', note.id);
-        e.dataTransfer.effectAllowed = 'link';
       }}
     >
       {note.imageUrl && (
-        <div className={`${note.size === 'lg' ? 'h-64' : 'h-40'} overflow-hidden relative`}>
+        <div className={`${note.size === 'lg' ? 'h-64' : 'h-40'} overflow-hidden relative border-b-2`} style={{ borderColor: isDark ? '#374151' : '#F3F4F6' }}>
           <img 
             src={note.imageUrl} 
             alt={note.title} 
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-60" />
-          <div className="absolute top-3 left-3 flex gap-2">
-            <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md" style={{ backgroundColor: currentStatus.color + 'CC' }}>
+          <div className="absolute inset-0 bg-black/10 transition-opacity group-hover:opacity-0" />
+          <div className="absolute top-4 left-4 flex gap-2">
+            <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-lg" style={{ backgroundColor: currentStatus.color }}>
               {currentStatus.label}
             </span>
-            {note.isPinned && (
-              <span className="bg-purple-500 text-white p-1 rounded-full shadow-lg">
-                <Pin size={10} />
-              </span>
-            )}
           </div>
         </div>
       )}
-      <div className="p-3.5 flex-1 flex flex-col">
+      <div className="p-5 flex-1 flex flex-col">
         {!note.imageUrl && (
-          <div className="mb-2 flex justify-between items-center">
-            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider text-white shadow-sm" style={{ backgroundColor: currentStatus.color }}>
+          <div className="mb-3 flex justify-between items-center">
+            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-white shadow-md" style={{ backgroundColor: currentStatus.color }}>
               {currentStatus.label}
             </span>
             {note.isPinned && (
-              <span className="text-primary">
+              <span className="text-primary bg-primary/10 p-1.5 rounded-xl">
                 <Pin size={12} fill="currentColor" />
               </span>
             )}
           </div>
         )}
-        <div className="flex justify-between items-start mb-1.5 gap-2">
-          <h3 className={`font-display font-bold text-gray-900 line-clamp-2 group-hover:text-primary transition-colors flex-1 ${note.size === 'lg' ? 'text-xl' : 'text-[15px]'}`}>{note.title}</h3>
-          <div className="flex items-center gap-1 shrink-0">
+        <div className="flex justify-between items-start mb-2 gap-2">
+          <h3 className={`font-display font-black line-clamp-2 leading-tight transition-colors flex-1 ${isDark ? 'text-white' : 'text-gray-900'} ${note.size === 'lg' ? 'text-xl' : 'text-[15px]'}`}>{note.title}</h3>
+          <div className="flex items-center gap-1.5 shrink-0">
             <button 
               onClick={(e) => { e.stopPropagation(); onPopout(); }}
-              className="p-1 rounded-full text-gray-300 hover:bg-gray-100 hover:text-primary transition-colors"
-              title="Pop-out Note"
+              className="p-1.5 rounded-xl text-gray-400 hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
+              title="Focus View"
             >
-              <ExternalLink size={12} />
+              <ExternalLink size={14} />
             </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-              className={`p-1 rounded-full transition-colors ${note.isCollapsed ? 'text-purple-500 bg-purple-50' : 'text-gray-300 hover:bg-gray-100'}`}
-              title={note.isCollapsed ? "Expand Note" : "Collapse Note"}
-            >
-              {note.isCollapsed ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onPin(); }}
-              className={`p-1 rounded-full transition-colors ${note.isPinned ? 'text-purple-500 bg-purple-50' : 'text-gray-300 hover:bg-gray-100'}`}
-              title={note.isPinned ? "Unpin Note" : "Pin Note"}
-            >
-              <Pin size={12} fill={note.isPinned ? "currentColor" : "none"} />
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onFavorite(); }}
-              className={`p-1 rounded-full transition-colors ${note.isFavorite ? 'text-yellow-400 bg-yellow-50' : 'text-gray-300 hover:bg-gray-100'}`}
-            >
-              <Star size={12} fill={note.isFavorite ? "currentColor" : "none"} />
-            </button>
+            {isAdmin && (
+               <button 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  onContextMenu(e.clientX, e.clientY, 'note', note.id);
+                }}
+                className="p-1.5 rounded-xl text-gray-400 hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
+                title="Options"
+              >
+                <MoreVertical size={14} />
+              </button>
+            )}
           </div>
         </div>
         
         {!note.isCollapsed && (
           <div 
-            className={`text-gray-500 text-[13px] mb-2 flex-1 prose prose-sm prose-p:my-0 prose-headings:my-1 prose-ul:my-0.5 prose-li:my-0 max-w-none leading-relaxed w-full overflow-hidden note-content ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-4' : (note.size === 'lg' ? 'line-clamp-none' : '')}`}
+            className={`text-gray-500 text-[13px] mb-4 flex-1 prose prose-sm prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0.5 max-w-none leading-relaxed w-full overflow-hidden note-content ${viewMode === 'compact' && note.size !== 'lg' ? 'line-clamp-5' : (note.size === 'lg' ? 'line-clamp-none' : '')}`}
             dir={!note.alignment ? "auto" : (note.alignment === 'right' ? 'rtl' : (note.alignment === 'left' ? 'ltr' : 'auto'))}
             style={{ 
               textAlign: note.alignment || 'start',
               fontFamily: userSettings.defaultFont,
-              fontSize: userSettings.defaultSize || '14px'
+              fontSize: userSettings.defaultSize || '14px',
+              color: isDark ? '#9CA3AF' : '#4B5563'
             }}
             dangerouslySetInnerHTML={{ __html: note.content }}
           />
         )}
 
-        <div className="flex flex-wrap gap-1.5 mb-2">
+        <div className="flex flex-wrap gap-1.5 mb-4 mt-auto">
           {note.tags.map(tag => (
-            <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+            <span key={tag} className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full border ${isDark ? 'text-gray-400 bg-gray-800 border-gray-700' : 'text-gray-500 bg-gray-50 border-gray-200'}`}>
               #{tag}
             </span>
           ))}
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-          <div className="flex items-center gap-3 text-gray-400">
+        <div className={`flex items-center justify-between pt-4 border-t ${isDark ? 'border-gray-800' : 'border-gray-100'}`}>
+          <div className="flex items-center gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
             {note.dueDate && (
-              <div className={`flex items-center gap-1 text-[10px] font-bold ${isAfter(new Date(), note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate)) ? 'text-purple-500' : ''}`}>
+              <div className={`flex items-center gap-1.5 ${isAfter(new Date(), note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate)) ? 'text-rose-500' : ''}`}>
                 <Calendar size={12} />
                 {format(note.dueDate.toDate ? note.dueDate.toDate() : new Date(note.dueDate), 'MMM d')}
               </div>
             )}
-            <div className="flex items-center gap-1 text-[10px] font-bold">
+            <div className="flex items-center gap-1.5">
               <Clock size={12} />
-              {note.createdAt ? format(note.createdAt.toDate(), 'MMM d') : 'Just now'}
+              {note.createdAt ? format(note.createdAt.toDate(), 'MMM d') : 'Now'}
             </div>
           </div>
-          
-          {isAdmin && (
-            <div className={`flex items-center gap-1 transition-all ${isMobile() ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0'}`}>
-              <button 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  onContextMenu(e.clientX, e.clientY, note.id);
-                }}
-                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
-                title="Change Card Size"
-              >
-                <Maximize2 size={14} />
-              </button>
-              {!isMobile() && (
-                <div className="flex bg-gray-100/50 rounded-full p-0.5 mr-1 overflow-x-auto max-w-[120px] no-scrollbar">
-                  {statuses.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={(e) => { e.stopPropagation(); onStatusChange(s.id); }}
-                      className={`p-1.5 rounded-full transition-all flex-shrink-0 ${note.status === s.id ? 'bg-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                      title={`Mark as ${s.label}`}
-                    >
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                    </button>
-                  ))}
-                </div>
-              )}
-              <button 
-                onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                className={`p-1.5 rounded-full transition-all ${isMobile() ? 'bg-purple-500 text-white shadow-md p-2' : 'hover:bg-gray-100/50 text-gray-500 hover:text-purple-500'}`}
-                title="Edit Note"
-              >
-                <Edit2 size={isMobile() ? 16 : 14} />
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); onArchive(); }}
-                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-purple-500 transition-colors"
-                title={note.isArchived ? "Unarchive" : "Archive"}
-              >
-                <Archive size={14} />
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="p-1.5 hover:bg-gray-100/50 rounded-full text-gray-500 hover:text-rose-500 transition-colors"
-                title="Delete Note"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </motion.div>
   );
 });
-
 export default function App() {
   const [error, setError] = useState<string | null>(null);
 
@@ -1540,7 +1468,7 @@ const ProjectView = ({ project, notes, folders, taskLists, tasks, onOpenNote, on
   );
 };
 
-const FolderTreeItem = ({ folder, allFolders, level, currentFolderId, expandedFolderIds, onSelect, onToggle }: {
+const FolderTreeItem = ({ folder, allFolders, level, currentFolderId, expandedFolderIds, onSelect, onToggle, onContextMenu }: {
   folder: FolderType;
   allFolders: FolderType[];
   level: number;
@@ -1548,6 +1476,7 @@ const FolderTreeItem = ({ folder, allFolders, level, currentFolderId, expandedFo
   expandedFolderIds: string[];
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
+  onContextMenu: (x: number, y: number, type: 'folder', id: string) => void;
   key?: string | number;
 }) => {
   const children = allFolders.filter(f => f.parentId === folder.id);
@@ -1557,12 +1486,16 @@ const FolderTreeItem = ({ folder, allFolders, level, currentFolderId, expandedFo
     <div className="space-y-0.5">
       <button 
         onClick={() => onSelect(folder.id)}
-        className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${currentFolderId === folder.id ? 'bg-primary text-white shadow-sm' : 'hover:bg-gray-100 text-gray-600'}`}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onContextMenu(e.clientX, e.clientY, 'folder', folder.id);
+        }}
+        className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${currentFolderId === folder.id ? 'bg-primary text-white shadow-md' : 'hover:bg-gray-100 text-gray-700'}`}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         draggable
         onDragStart={(e) => {
           e.dataTransfer.setData('folderId', folder.id);
-          e.dataTransfer.effectAllowed = 'link';
         }}
       >
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -1602,7 +1535,6 @@ const PaneRenderer = ({
   onActivate,
   notes,
   folders,
-  projects,
   taskLists,
   tasks,
   statuses,
@@ -1622,7 +1554,6 @@ const PaneRenderer = ({
   setContextMenu,
   selectedTags,
   searchQuery,
-  onAddProjectItem,
   isSplitView
 }: {
   pane: WorkspacePaneConfig;
@@ -1630,7 +1561,6 @@ const PaneRenderer = ({
   onActivate: () => void;
   notes: Note[];
   folders: FolderType[];
-  projects: Project[];
   taskLists: TaskList[];
   tasks: Task[];
   statuses: StatusOption[];
@@ -1650,7 +1580,6 @@ const PaneRenderer = ({
   setContextMenu: (menu: any) => void;
   selectedTags: string[];
   searchQuery: string;
-  onAddProjectItem: (projectId: string, item: ProjectItem) => void;
   isSplitView: boolean;
 }) => {
   const filteredNotes = useMemo(() => {
@@ -1682,26 +1611,8 @@ const PaneRenderer = ({
     });
   }, [filteredNotes]);
 
-  if (pane.viewMode === 'project') {
-    return (
-      <div className={`h-full overflow-y-auto no-scrollbar scroll-smooth ${isActive ? 'ring-2 ring-primary/20 ring-inset' : ''}`} onClick={onActivate}>
-        <ProjectView 
-          project={projects.find(p => p.id === pane.currentProjectId)}
-          notes={notes}
-          folders={folders}
-          taskLists={taskLists}
-          tasks={tasks}
-          onAddItem={onAddProjectItem}
-          onOpenNote={openWindow}
-          onOpenFolder={() => {}}
-          onOpenTaskList={() => {}}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className={`h-full flex flex-col relative overflow-hidden transition-all duration-500 ${isActive ? 'bg-white shadow-inner' : 'bg-gray-50/50 grayscale-[0.2]'}`} onClick={onActivate}>
+    <div className={`h-full flex flex-col relative overflow-hidden transition-all duration-500 ${isActive ? 'bg-white border-primary/20' : 'bg-gray-100/30'}`} onClick={onActivate}>
       <div className="flex-1 overflow-y-auto no-scrollbar p-6">
           <div className="mb-8 flex items-center justify-between">
             <div>
@@ -1791,7 +1702,7 @@ const PaneRenderer = ({
                     onSizeChange={(s) => onSizeNote(note.id, s)}
                     onToggleCollapse={() => onToggleCollapse(note.id, !note.isCollapsed)}
                     onPopout={() => onPopoutNote(note.id)}
-                    onContextMenu={(x, y, noteId) => setContextMenu({ x, y, type: 'note', noteId })}
+                    onContextMenu={(x, y, type, id) => setContextMenu({ x, y, type, id })}
                     statuses={statuses}
                     viewMode="compact"
                     onClick={() => openWindow(note.id)}
@@ -1811,9 +1722,8 @@ function AppContent() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [folders, setFolders] = useState<FolderType[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [panes, setPanes] = useState<WorkspacePaneConfig[]>([
-    { id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
+    { id: 'pane-1', viewMode: 'board', currentFolderId: null, searchQuery: '' }
   ]);
   const [activePaneId, setActivePaneId] = useState<string>('pane-1');
 
@@ -1844,8 +1754,6 @@ function AppContent() {
   };
   const [currentNote, setCurrentNote] = useState<Note | null>(null);
   const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
-  const [showAddProjectModal, setShowAddProjectModal] = useState(false);
-  const [editProjectData, setEditProjectData] = useState<Project | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [isQuickNote, setIsQuickNote] = useState(false);
@@ -1853,7 +1761,6 @@ function AppContent() {
   const activePane = panes.find(p => p.id === activePaneId) || panes[0];
   const viewMode = activePane.viewMode;
   const currentFolderId = activePane.currentFolderId;
-  const currentProjectId = activePane.currentProjectId;
 
   const updatePaneState = (id: string, updates: Partial<WorkspacePaneConfig>) => {
     const newPanes = panes.map(p => p.id === id ? { ...p, ...updates } : p);
@@ -1865,15 +1772,11 @@ function AppContent() {
   };
 
   const setCurrentFolderId = (id: string | null) => {
-    updatePaneState(activePaneId, { currentFolderId: id, currentProjectId: null, viewMode: 'board' });
-  };
-
-  const setCurrentProjectId = (id: string | null) => {
-    updatePaneState(activePaneId, { currentProjectId: id, currentFolderId: null, viewMode: 'project' });
+    updatePaneState(activePaneId, { currentFolderId: id, viewMode: 'board' });
   };
 
   const resetActivePane = () => {
-    updatePaneState(activePaneId, { currentFolderId: null, currentProjectId: null, viewMode: 'board', searchQuery: '' });
+    updatePaneState(activePaneId, { currentFolderId: null, viewMode: 'board', searchQuery: '' });
   };
 
   const toggleFolderExpanded = (id: string) => {
@@ -2022,7 +1925,9 @@ function AppContent() {
 
   const [showDensityPopover, setShowDensityPopover] = useState(false);
   const [showBgPopover, setShowBgPopover] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, type: 'board' | 'note', noteId?: string } | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewData, setPreviewData] = useState<{ type: 'folder' | 'project', id: string, name: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, type: 'board' | 'note' | 'folder' | 'project', id?: string } | null>(null);
 
   useEffect(() => {
     localStorage.setItem('isTaskSidebarOpen', JSON.stringify(isTaskSidebarOpen));
@@ -2354,6 +2259,30 @@ function AppContent() {
     }
   };
 
+  const handleSaveLayout = async (name: string) => {
+    if (!user || !isAdmin) return;
+    const newLayout: WorkspaceLayout = {
+      id: `layout-${Date.now()}`,
+      name,
+      panes: panes.map(p => ({ ...p }))
+    };
+    const updatedLayouts = [...(userSettings.savedLayouts || []), newLayout];
+    await updateUserSettings({ savedLayouts: updatedLayouts });
+  };
+
+  const handleSelectLayout = (layoutId: string) => {
+    const layout = userSettings.savedLayouts?.find(l => l.id === layoutId);
+    if (layout) {
+      updatePanes(layout.panes, layout.panes[0].id);
+    }
+  };
+
+  const handleDeleteLayout = async (layoutId: string) => {
+    if (!user || !isAdmin) return;
+    const updatedLayouts = (userSettings.savedLayouts || []).filter(l => l.id !== layoutId);
+    await updateUserSettings({ savedLayouts: updatedLayouts });
+  };
+
   const handleFirestoreError = (error: any, operationType: OperationType, path: string | null) => {
     const errInfo = {
       error: error instanceof Error ? error.message : String(error),
@@ -2365,9 +2294,7 @@ function AppContent() {
         tenantId: auth.currentUser?.tenantId,
         providerInfo: auth.currentUser?.providerData.map(provider => ({
           providerId: provider.providerId,
-          displayName: provider.displayName,
           email: provider.email,
-          photoUrl: provider.photoURL
         })) || []
       },
       operationType,
@@ -2841,8 +2768,8 @@ function AppContent() {
 
   const handlePopout = (noteId: string) => {
     const url = `${window.location.origin}${window.location.pathname}?popout=${noteId}`;
-    const width = 450;
-    const height = 550;
+    const width = 800;
+    const height = 900;
     const left = (window.screen.width / 2) - (width / 2);
     const top = (window.screen.height / 2) - (height / 2);
     
@@ -2922,7 +2849,7 @@ function AppContent() {
 
   return (
     <div 
-      className={`min-h-screen flex flex-col transition-all duration-500 ${userSettings.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-base text-gray-900'}`} 
+      className={`min-h-screen flex flex-col transition-all duration-500 high-contrast-borders ${userSettings.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-base text-gray-900'}`} 
       style={{ 
         background: boardBackground.startsWith('http') ? `url(${boardBackground})` : boardBackground,
         backgroundColor: userSettings.theme === 'dark' ? '#111827' : '#F0F8FF',
@@ -2932,7 +2859,7 @@ function AppContent() {
       }}
     >
       {/* Header */}
-      <header className={`sticky top-0 z-50 w-full transition-all duration-500 px-4 py-3 md:px-8 ${userSettings.theme === 'dark' ? 'bg-gray-900/80 shadow-[0_4px_30px_rgba(0,0,0,0.3)]' : 'bg-white/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)]'} backdrop-blur-2xl border-b border-white/20`}>
+      <header className={`sticky top-0 z-50 w-full transition-all duration-300 px-4 py-3 md:px-8 ${userSettings.theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} border-b shadow-sm`}>
         <div className="max-w-[2400px] mx-auto flex items-center justify-between gap-6">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-4">
@@ -2946,13 +2873,43 @@ function AppContent() {
                 className="group flex items-center gap-3 cursor-pointer" 
                 onClick={resetActivePane}
               >
-                <div className="w-10 h-10 bg-primary/10 text-primary rounded-[1rem] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500">
+                <div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-500">
                   <PlusCircle size={24} />
                 </div>
                 <div className="hidden sm:block">
-                  <h1 className="text-lg font-display font-bold text-gray-900 leading-tight">Notes For Myself</h1>
+                  <h1 className={`text-lg font-display font-bold leading-tight ${userSettings.theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Notes For Myself</h1>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Workspace</p>
                 </div>
+              </div>
+            </div>
+
+            {/* Layouts Switcher */}
+            <div className="hidden xl:flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth max-w-md border-l border-gray-200 pl-4 py-1">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Layouts</span>
+              <div className="flex items-center gap-1.5 flex-nowrap">
+                {userSettings.savedLayouts?.map(layout => (
+                  <button 
+                    key={layout.id}
+                    onClick={() => handleSelectLayout(layout.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (confirm('Delete this layout?')) handleDeleteLayout(layout.id);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all border ${panes.map(p => p.currentFolderId).join(',') === layout.panes.map(p => p.currentFolderId).join(',') ? 'bg-primary text-white border-primary shadow-md' : 'bg-gray-100 text-gray-600 border-gray-200 hover:border-primary'}`}
+                  >
+                    {layout.name}
+                  </button>
+                ))}
+                <button 
+                  onClick={() => {
+                    const name = prompt('Layout name?');
+                    if (name) handleSaveLayout(name);
+                  }}
+                  className="p-1.5 bg-gray-50 border border-dashed border-gray-300 rounded-xl text-gray-400 hover:border-primary hover:text-primary transition-all"
+                  title="Save Current Layout"
+                >
+                  <Plus size={14} />
+                </button>
               </div>
             </div>
 
@@ -3072,9 +3029,9 @@ function AppContent() {
 
       <div className="flex w-full">
         {/* Sidebar - Desktop */}
-        <aside className={`hidden md:block transition-all duration-300 sticky top-16 h-[calc(100vh-64px)] overflow-y-auto border-r ${userSettings.theme === 'dark' ? 'glass-dark' : 'glass'} ${userSettings.isSidebarCollapsed ? 'w-16' : 'w-60'} p-3 no-scrollbar`}>
+        <aside className={`hidden md:block transition-all duration-300 sticky top-16 h-[calc(100vh-64px)] overflow-y-auto border-r ${userSettings.theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} ${userSettings.isSidebarCollapsed ? 'w-16' : 'w-60'} p-3 no-scrollbar`}>
           <div className="flex items-center justify-between mb-4">
-            {!userSettings.isSidebarCollapsed && <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">Workspace</h3>}
+            {!userSettings.isSidebarCollapsed && <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">Library</h3>}
             <button 
               onClick={() => setUserSettings(prev => ({ ...prev, isSidebarCollapsed: !prev.isSidebarCollapsed }))}
               className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors ml-auto"
@@ -3086,14 +3043,25 @@ function AppContent() {
           <nav className="space-y-6">
             {/* Notes Section */}
             <div>
-              <button 
-                onClick={() => { setViewMode('board'); setCurrentFolderId(null); setCurrentProjectId(null); }}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold transition-all ${viewMode === 'board' && !currentFolderId && !currentProjectId ? 'bg-primary text-white shadow-lg' : 'hover:bg-gray-100 text-gray-700'}`}
-              >
-                <Grid size={14} /> {!userSettings.isSidebarCollapsed && 'Notes'}
-              </button>
+              <div className="flex items-center justify-between mb-2">
+                <button 
+                  onClick={() => { setViewMode('board'); setCurrentFolderId(null); }}
+                  className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold transition-all ${viewMode === 'board' && !currentFolderId ? 'bg-primary text-white shadow-lg' : 'hover:bg-gray-100 text-gray-700'}`}
+                >
+                  <Grid size={14} /> {!userSettings.isSidebarCollapsed && 'All Notes'}
+                </button>
+                {!userSettings.isSidebarCollapsed && (
+                  <button 
+                    onClick={() => setShowAddFolderModal(true)}
+                    className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors ml-1"
+                    title="New Folder"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+              </div>
               {!userSettings.isSidebarCollapsed && (
-                <div className="mt-1 space-y-0.5 ml-2">
+                <div className="mt-1 space-y-0.5 ml-1">
                   {folders.filter(f => !f.parentId).map(folder => (
                     <FolderTreeItem 
                       key={folder.id}
@@ -3104,6 +3072,7 @@ function AppContent() {
                       expandedFolderIds={expandedFolderIds}
                       onSelect={setCurrentFolderId}
                       onToggle={toggleFolderExpanded}
+                      onContextMenu={(x, y, type, id) => setContextMenu({ x, y, type, id })}
                     />
                   ))}
                 </div>
@@ -3150,6 +3119,11 @@ function AppContent() {
                   >
                     <button 
                       onClick={() => setCurrentProjectId(project.id)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setContextMenu({ x: e.clientX, y: e.clientY, type: 'project', id: project.id });
+                      }}
                       className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-bold transition-all ${currentProjectId === project.id ? 'bg-primary text-white shadow-lg' : 'hover:bg-gray-100 text-gray-700'}`}
                       style={!userSettings.isSidebarCollapsed ? { borderLeft: `3px solid ${project.color || colors.primary}` } : {}}
                     >
@@ -3167,10 +3141,10 @@ function AppContent() {
                 <div className="flex gap-2 px-2">
                   <button 
                     onClick={() => {
-                        const newPanes = [{ id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }];
+                        const newPanes = [{ id: 'pane-1', viewMode: 'board', currentFolderId: null, searchQuery: '' }];
                         updatePanes(newPanes, newPanes[0].id);
                     }}
-                    className={`flex-1 p-2 rounded-lg border flex items-center justify-center transition-all ${panes.length === 1 ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
+                    className={`flex-1 p-2 rounded-lg border-2 flex items-center justify-center transition-all ${panes.length === 1 ? 'border-primary bg-primary text-white shadow-md' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
                     title="Single"
                   >
                     <Maximize2 size={12} />
@@ -3179,12 +3153,12 @@ function AppContent() {
                     onClick={() => {
                       if (panes.length === 2) return;
                       const newPanes = [
-                        { id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
-                        { id: 'pane-2', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
+                        { id: 'pane-1', viewMode: 'board', currentFolderId: null, searchQuery: '' },
+                        { id: 'pane-2', viewMode: 'board', currentFolderId: null, searchQuery: '' }
                       ];
                       updatePanes(newPanes, newPanes[0].id);
                     }}
-                    className={`flex-1 p-2 rounded-lg border flex items-center justify-center transition-all ${panes.length === 2 ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
+                    className={`flex-1 p-2 rounded-lg border-2 flex items-center justify-center transition-all ${panes.length === 2 ? 'border-primary bg-primary text-white shadow-md' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
                     title="Split"
                   >
                     <Columns size={12} />
@@ -3193,14 +3167,14 @@ function AppContent() {
                     onClick={() => {
                       if (panes.length === 4) return;
                       const newPanes = [
-                        { id: 'pane-1', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
-                        { id: 'pane-2', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
-                        { id: 'pane-3', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' },
-                        { id: 'pane-4', viewMode: 'board', currentFolderId: null, currentProjectId: null, searchQuery: '' }
+                        { id: 'pane-1', viewMode: 'board', currentFolderId: null, searchQuery: '' },
+                        { id: 'pane-2', viewMode: 'board', currentFolderId: null, searchQuery: '' },
+                        { id: 'pane-3', viewMode: 'board', currentFolderId: null, searchQuery: '' },
+                        { id: 'pane-4', viewMode: 'board', currentFolderId: null, searchQuery: '' }
                       ];
                       updatePanes(newPanes, newPanes[0].id);
                     }}
-                    className={`flex-1 p-2 rounded-lg border flex items-center justify-center transition-all ${panes.length === 4 ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
+                    className={`flex-1 p-2 rounded-lg border-2 flex items-center justify-center transition-all ${panes.length === 4 ? 'border-primary bg-primary text-white shadow-md' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}
                     title="Grid"
                   >
                     <LayoutGrid size={12} />
@@ -3236,13 +3210,11 @@ function AppContent() {
                     onActivate={() => updateActivePaneId(pane.id)}
                     notes={notes}
                     folders={folders}
-                    projects={projects}
                     taskLists={taskLists}
                     tasks={tasks}
                     statuses={statuses}
                     userSettings={userSettings}
                     isAdmin={isAdmin}
-                    onAddProjectItem={handleAddProjectItem}
                     isSplitView={panes.length > 1}
                     onEditNote={(note) => {
                       setEditNoteData(note);
@@ -3668,8 +3640,9 @@ function AppContent() {
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
 
-        <SettingsModal 
+      <SettingsModal 
           isOpen={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
           statuses={statuses}
@@ -3755,7 +3728,6 @@ function AppContent() {
             })}
           </div>
         )}
-      </AnimatePresence>
 
         {/* Mobile Navigation Bar */}
         {isMobile() && (
@@ -3810,189 +3782,203 @@ function AppContent() {
               >
                 {contextMenu.type === 'board' ? (
                   <div className="space-y-1">
-                    <div className={`p-3 border-b mb-1 ${userSettings.theme === 'dark' ? 'border-gray-700' : 'border-gray-50'}`}>
-                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Board Actions</h4>
+                    <div className={`p-3 border-b mb-1 ${userSettings.theme === 'dark' ? 'border-gray-700' : 'border-gray-100'}`}>
+                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Board Actions</h4>
                     </div>
                     <button 
                       onClick={() => {
                         setEditNoteData(null);
                         resetNoteForm();
                         if (currentFolderId) setNoteFolderId(currentFolderId);
-                        setIsQuickNote(true);
+                        setIsQuickNote(false);
                         setShowAddNoteModal(true);
                         setContextMenu(null);
                       }}
-                      className="w-full text-left px-4 py-3 hover:bg-purple-50 hover:text-purple-600 text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
+                      className="w-full text-left px-4 py-3 hover:bg-primary hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
                     >
-                      <PlusCircle size={18} /> Add Quick Note
+                      <PlusCircle size={18} /> New Note
                     </button>
                     <button 
                       onClick={() => {
                         setShowAddFolderModal(true);
                         setContextMenu(null);
                       }}
-                      className="w-full text-left px-4 py-3 hover:bg-purple-50 hover:text-purple-600 text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
+                      className="w-full text-left px-4 py-3 hover:bg-primary hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
                     >
                       <Folder size={18} /> New Folder
                     </button>
+                    <div className="h-px bg-gray-100 my-1 mx-2" />
                     <button 
-                      onClick={() => {
-                        handleUndo();
-                        setContextMenu(null);
-                      }}
+                      onClick={() => { handleUndo(); setContextMenu(null); }}
                       disabled={historyIndex < 0}
-                      className={`w-full text-left px-4 py-3 text-sm font-medium flex items-center gap-3 transition-all rounded-2xl ${historyIndex < 0 ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-purple-50 hover:text-purple-600 text-gray-700'}`}
+                      className={`w-full text-left px-4 py-3 text-sm font-bold flex items-center gap-3 transition-all rounded-2xl ${historyIndex < 0 ? 'opacity-30' : 'hover:bg-primary hover:text-white'}`}
                     >
                       <Undo2 size={18} /> Undo Action
                     </button>
-                    <button 
-                      onClick={() => {
-                        handleRedo();
-                        setContextMenu(null);
-                      }}
-                      disabled={historyIndex >= history.length - 1}
-                      className={`w-full text-left px-4 py-3 text-sm font-medium flex items-center gap-3 transition-all rounded-2xl ${historyIndex >= history.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-purple-50 hover:text-purple-600 text-gray-700'}`}
-                    >
-                      <Redo2 size={18} /> Redo Action
-                    </button>
-                    <div className="h-px bg-gray-100 my-1 mx-2" />
-                    <button 
-                      onClick={() => {
-                        setViewMode('board');
-                        setContextMenu(null);
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm font-medium flex items-center gap-3 transition-all rounded-2xl"
-                    >
-                      <Grid size={18} /> All Notes
-                    </button>
                   </div>
-                ) : (
+                ) : contextMenu.type === 'note' ? (
                   <div className="space-y-1">
-                    <div className="p-3 border-b border-gray-50 mb-1">
-                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Note Customization</h4>
+                    <div className={`p-3 border-b mb-1 ${userSettings.theme === 'dark' ? 'border-gray-700' : 'border-gray-100'}`}>
+                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Note Options</h4>
                     </div>
-                    
-                    <div className="px-3 py-2">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">Palette</span>
-                      <div className="grid grid-cols-5 gap-2">
-                        {PASTEL_COLORS.map(c => (
-                          <button
-                            key={c.value}
-                            onClick={() => {
-                              if (contextMenu.noteId) handleUpdateNote(contextMenu.noteId, { color: c.value });
-                              setContextMenu(null);
-                            }}
-                            className="w-8 h-8 rounded-full border-2 border-white shadow-sm hover:scale-125 transition-transform ring-1 ring-gray-100"
-                            style={{ backgroundColor: c.value || '#FFFFFF' }}
-                            title={c.name}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="px-3 py-2 border-t border-gray-50">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-3">Display Size</span>
-                      <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        const note = notes.find(n => n.id === contextMenu.id);
+                        if (note) openWindow(note.id);
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-primary hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
+                    >
+                      <ExternalLink size={18} /> Focus Note
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const note = notes.find(n => n.id === contextMenu.id);
+                        if (note) handleUpdateNote(note.id, { isPinned: !note.isPinned });
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-primary hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
+                    >
+                      <Pin size={18} /> {notes.find(n => n.id === contextMenu.id)?.isPinned ? 'Unpin' : 'Pin'}
+                    </button>
+                    <div className="px-3 py-2 border-t border-gray-100 mt-1">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Display Size</span>
+                      <div className="flex gap-1.5">
                         {(['sm', 'md', 'lg'] as const).map(s => (
                           <button
                             key={s}
                             onClick={() => {
-                              if (contextMenu.noteId) handleUpdateNote(contextMenu.noteId, { size: s });
+                              if (contextMenu.id) handleUpdateNote(contextMenu.id, { size: s });
                               setContextMenu(null);
                             }}
-                            className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold transition-all ${notes.find(n => n.id === contextMenu.noteId)?.size === s ? 'bg-purple-500 text-white shadow-lg shadow-purple-200' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                            className={`flex-1 py-2 rounded-lg text-[10px] font-black transition-all border-2 ${notes.find(n => n.id === contextMenu.id)?.size === s ? 'bg-primary border-primary text-white' : 'bg-gray-50 border-gray-100 text-gray-500 hover:border-primary'}`}
                           >
                             {s.toUpperCase()}
                           </button>
                         ))}
                       </div>
                     </div>
-
-                    <div className="pt-1 border-t border-gray-50">
-                      <button 
-                        onClick={() => {
-                          const note = notes.find(n => n.id === contextMenu.noteId);
-                          if (note) {
-                            openWindow(note.id);
-                          }
-                          setContextMenu(null);
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm font-bold text-purple-600 hover:bg-purple-50 flex items-center gap-3 transition-all rounded-2xl"
-                      >
-                        <Maximize2 size={16} /> Open / Edit
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (contextMenu.noteId) handlePopout(contextMenu.noteId);
-                          setContextMenu(null);
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center gap-3 transition-all rounded-2xl"
-                      >
-                        <ExternalLink size={16} /> Pop-out Note
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const note = notes.find(n => n.id === contextMenu.noteId);
-                          if (note) handleDuplicateNote(note);
-                          setContextMenu(null);
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center gap-3 transition-all rounded-2xl"
-                      >
-                        <Copy size={16} /> Duplicate Note
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const note = notes.find(n => n.id === contextMenu.noteId);
-                          if (note) toggleFavorite(note);
-                          setContextMenu(null);
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center gap-3 transition-all rounded-2xl"
-                      >
-                        <Star size={16} className={notes.find(n => n.id === contextMenu.noteId)?.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''} />
-                        {notes.find(n => n.id === contextMenu.noteId)?.isFavorite ? 'Unfavorite' : 'Favorite'}
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const note = notes.find(n => n.id === contextMenu.noteId);
-                          if (note) handlePinNote(note.id, !note.isPinned);
-                          setContextMenu(null);
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center gap-3 transition-all rounded-2xl"
-                      >
-                        <Pin size={16} className={notes.find(n => n.id === contextMenu.noteId)?.isPinned ? 'fill-current' : ''} />
-                        {notes.find(n => n.id === contextMenu.noteId)?.isPinned ? 'Unpin Note' : 'Pin Note'}
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const note = notes.find(n => n.id === contextMenu.noteId);
-                          if (note) toggleArchive(note);
-                          setContextMenu(null);
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-600 flex items-center gap-3 transition-all rounded-2xl"
-                      >
-                        <Archive size={16} />
-                        Archive Note
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (contextMenu.noteId) deleteNote(contextMenu.noteId);
-                          setContextMenu(null);
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm font-medium text-rose-500 hover:bg-rose-50 flex items-center gap-3 transition-all rounded-2xl"
-                      >
-                        <Trash2 size={16} />
-                        Delete Note
-                      </button>
-                    </div>
+                    <button 
+                      onClick={() => {
+                        if (contextMenu.id) deleteNote(contextMenu.id);
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 mt-1 hover:bg-rose-500 hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl text-rose-500"
+                    >
+                      <Trash2 size={18} /> Delete Note
+                    </button>
                   </div>
-                )}
+                ) : contextMenu.type === 'project' ? (
+                  <div className="space-y-1">
+                    <div className={`p-3 border-b mb-1 ${userSettings.theme === 'dark' ? 'border-gray-700' : 'border-gray-100'}`}>
+                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Project Options</h4>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const project = projects.find(p => p.id === contextMenu.id);
+                        if (project) {
+                          setPreviewData({ type: 'project', id: project.id, name: project.name });
+                          setShowPreviewModal(true);
+                        }
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-primary hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
+                    >
+                      <Eye size={18} /> Preview Project
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const project = projects.find(p => p.id === contextMenu.id);
+                        if (project) {
+                          setEditProjectData(project);
+                          setShowAddProjectModal(true);
+                        }
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-primary hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
+                    >
+                      <Edit2 size={18} /> Edit Project
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (contextMenu.id) handleDeleteProject(contextMenu.id);
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 mt-1 hover:bg-rose-500 hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl text-rose-500"
+                    >
+                      <Trash2 size={18} /> Delete Project
+                    </button>
+                  </div>
+                ) : contextMenu.type === 'folder' ? (
+                  <div className="space-y-1">
+                    <div className={`p-3 border-b mb-1 ${userSettings.theme === 'dark' ? 'border-gray-700' : 'border-gray-100'}`}>
+                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Folder Options</h4>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const folder = folders.find(f => f.id === contextMenu.id);
+                        if (folder) {
+                          setPreviewData({ type: 'folder', id: folder.id, name: folder.name });
+                          setShowPreviewModal(true);
+                        }
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-primary hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
+                    >
+                      <Eye size={18} /> Preview Folder
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const folder = folders.find(f => f.id === contextMenu.id);
+                        if (folder) {
+                          setEditFolderData(folder);
+                          setShowAddFolderModal(true);
+                        }
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-primary hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl"
+                    >
+                      <Edit2 size={18} /> Rename Folder
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (contextMenu.id) handleDeleteFolder(contextMenu.id);
+                        setContextMenu(null);
+                      }}
+                      className="w-full text-left px-4 py-3 mt-1 hover:bg-rose-500 hover:text-white text-sm font-bold flex items-center gap-3 transition-all rounded-2xl text-rose-500"
+                    >
+                      <Trash2 size={18} /> Delete Folder
+                    </button>
+                  </div>
+                ) : null}
               </motion.div>
             </>
           )}
         </AnimatePresence>
 
-      {/* Custom Styles for Quill */}
-      <style>{`
+        {/* Modals */}
+        <AnimatePresence>
+          {showPreviewModal && (
+            <PreviewModal 
+              isOpen={showPreviewModal}
+              onClose={() => setShowPreviewModal(false)}
+              data={previewData}
+              notes={notes}
+              folders={folders}
+              projects={projects}
+              userSettings={userSettings}
+              onOpenNote={openWindow}
+            />
+          )}
+        </AnimatePresence>
+
+    <style>{`
+        .high-contrast-borders * {
+          border-color: rgba(0,0,0,0.3) !important;
+        }
+        .dark .high-contrast-borders * {
+          border-color: rgba(255,255,255,0.3) !important;
+        }
         .ql-container {
           font-family: inherit;
           font-size: inherit;
@@ -4462,5 +4448,107 @@ function SettingsModal({
         </div>
       )}
     </AnimatePresence>
+  );
+}
+
+interface PreviewModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  data: { type: 'folder' | 'project', id: string, name: string } | null;
+  notes: Note[];
+  folders: FolderType[];
+  projects: Project[];
+  userSettings: UserSettings;
+  onOpenNote: (id: string) => void;
+}
+
+function PreviewModal({ isOpen, onClose, data, notes, folders, projects, userSettings, onOpenNote }: PreviewModalProps) {
+  if (!isOpen || !data) return null;
+
+  const getNotes = () => {
+    if (data.type === 'folder') {
+      const getChildFolderIds = (parentId: string): string[] => {
+        const children = folders.filter(f => f.parentId === parentId);
+        return [parentId, ...children.flatMap(child => getChildFolderIds(child.id))];
+      };
+      const allFolderIds = getChildFolderIds(data.id);
+      return notes.filter(n => allFolderIds.includes(n.folderId || ''));
+    } else {
+      const project = projects.find(p => p.id === data.id);
+      if (!project) return [];
+      const noteIds = project.items?.filter(item => item.type === 'note').map(item => item.refId) || [];
+      return notes.filter(n => noteIds.includes(n.id));
+    }
+  };
+
+  const filteredNotes = getNotes();
+
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-8">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/60 backdrop-blur-md"
+        onClick={onClose}
+      />
+      
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className={`relative w-full max-w-6xl max-h-[90vh] ${userSettings.theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} rounded-[3rem] shadow-2xl border flex flex-col overflow-hidden`}
+      >
+        <div className="p-8 border-b flex justify-between items-center bg-gray-50/50">
+          <div>
+            <div className="flex items-center gap-3 text-primary font-black uppercase text-xs tracking-widest mb-2">
+              <Eye size={16} /> {data.type} Preview
+            </div>
+            <h2 className="text-3xl font-black tracking-tight">{data.name}</h2>
+          </div>
+          <button 
+            onClick={onClose}
+            className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-100 flex items-center justify-center hover:bg-gray-50 transition-all hover:rotate-90"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-8 no-scrollbar">
+          {filteredNotes.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-12">
+              <div className="w-20 h-20 bg-gray-50 text-gray-200 rounded-[2rem] flex items-center justify-center mb-6">
+                <Grid size={40} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-400">No notes found for this {data.type}</h3>
+              <p className="text-gray-400 mt-2">Try adding some notes to this {data.type} to see them here.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredNotes.map(note => (
+                <motion.div 
+                  key={note.id}
+                  whileHover={{ y: -5 }}
+                  onClick={() => { onOpenNote(note.id); onClose(); }}
+                  className={`p-6 rounded-[2rem] cursor-pointer transition-all border-2 border-transparent hover:border-primary/20 ${userSettings.theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} shadow-sm hover:shadow-xl`}
+                  style={{ borderLeftColor: note.color || '#3b82f6' }}
+                >
+                  <h3 className="font-black text-lg mb-2 line-clamp-1">{note.title}</h3>
+                  <div className="text-sm text-gray-500 line-clamp-3 mb-4 no-scrollbar prose prose-sm overflow-hidden" dangerouslySetInnerHTML={{ __html: note.content }} />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                       {note.updatedAt?.toDate ? format(note.updatedAt.toDate(), 'MMM d, yyyy') : 'No date'}
+                    </span>
+                    <div className="w-8 h-8 rounded-xl bg-primary/5 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+                      <ExternalLink size={14} />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </div>
   );
 }
