@@ -88,6 +88,20 @@ import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { motion, AnimatePresence } from 'motion/react';
 import PreviewModal from './components/PreviewModal';
+import { 
+  Note, 
+  FolderType, 
+  Project, 
+  UserSettings, 
+  WorkspacePaneConfig, 
+  WorkspaceLayout, 
+  Task, 
+  TaskList, 
+  StatusOption, 
+  ActiveWindow, 
+  Connection,
+  ProjectItem
+} from './types';
 
 const appId = 'notes-for-myself-app';
 
@@ -119,92 +133,11 @@ enum OperationType {
   WRITE = 'write',
 }
 
-export interface Note {
-  id: string;
-  title: string;
-  content: string;
-  folderId: string | null;
-  tags: string[];
-  dueDate: any;
-  isFavorite: boolean;
-  isArchived: boolean;
-  isPinned: boolean;
-  size: 'sm' | 'md' | 'lg';
-  imageUrl?: string;
-  status: string;
-  color?: string;
-  createdAt: any;
-  updatedAt: any;
-  uid: string;
-  alignment?: 'left' | 'center' | 'right' | 'justify';
-  isCollapsed?: boolean;
-  canvasX?: number;
-  canvasY?: number;
-  canvasWidth?: number;
-  canvasHeight?: number;
-  links?: string[];
-}
-
-interface NoteVersion {
+export interface NoteVersion {
   id: string;
   noteId: string;
   title: string;
   content: string;
-  createdAt: any;
-  uid: string;
-}
-
-interface Connection {
-  id: string;
-  fromId: string;
-  toId: string;
-  uid: string;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  isCompleted: boolean;
-  isPinned: boolean;
-  isArchived?: boolean;
-  listId: string;
-  noteId?: string;
-  dueDate?: any;
-  createdAt: any;
-  uid: string;
-}
-
-interface TaskList {
-  id: string;
-  name: string;
-  isFavorite: boolean;
-  createdAt: any;
-  uid: string;
-}
-
-interface StatusOption {
-  id: string;
-  label: string;
-  color: string;
-  isVisible: boolean;
-  background?: string;
-}
-
-export interface ProjectItem {
-  id: string;
-  type: 'note' | 'folder' | 'task' | 'image';
-  refId: string;
-  name: string;
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  color?: string;
-  icon?: string;
-  isFavorite?: boolean;
-  items?: ProjectItem[];
   createdAt: any;
   uid: string;
 }
@@ -220,63 +153,6 @@ const PASTEL_COLORS = [
   { name: 'Mint', value: 'rgba(152, 255, 152, 0.4)' },
   { name: 'Lavender', value: 'rgba(230, 230, 250, 0.4)' }
 ];
-
-export interface UserSettings {
-  defaultFont: string;
-  defaultSize: string;
-  defaultAlignment: 'left' | 'center' | 'right' | 'justify';
-  cardViewMode: 'compact' | 'full';
-  defaultFolderId: string | null;
-  defaultTaskListId: string | null;
-  startupFolderId: string | null;
-  startupTaskListId: string | null;
-  enableNotifications: boolean;
-  isSidebarCollapsed: boolean;
-  gridColumns: number;
-  notesPerColumn: number;
-  sortBy: 'date' | 'status';
-  theme: 'light' | 'dark' | 'glass' | 'minimal';
-  boardTheme: string;
-  panes?: WorkspacePaneConfig[];
-  activePaneId?: string;
-  savedLayouts?: WorkspaceLayout[];
-}
-
-interface WorkspaceLayout {
-  id: string;
-  name: string;
-  panes: WorkspacePaneConfig[];
-}
-
-export interface WorkspacePaneConfig {
-  id: string;
-  viewMode: string;
-  currentFolderId: string | null;
-  currentProjectId?: string | null;
-  searchQuery: string;
-}
-
-interface ActiveWindow {
-  id: string;
-  noteId: string;
-  type: 'view' | 'edit';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  isMinimized: boolean;
-  isMaximized: boolean;
-  zIndex: number;
-}
-
-export interface FolderType {
-  id: string;
-  name: string;
-  parentId: string | null;
-  createdAt: any;
-  background?: string;
-  wallpaper?: string;
-}
 
 // Note Card Component for reuse
 const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onDelete, onStatusChange, onColorChange, onPin, onSizeChange, onToggleCollapse, onPopout, statuses, viewMode, onClick, userSettings, onContextMenu }: { 
@@ -427,6 +303,54 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
     </motion.div>
   );
 });
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-rose-50 p-8">
+          <div className="max-w-xl w-full bg-white p-10 rounded-[3rem] shadow-2xl border border-rose-100">
+            <div className="w-20 h-20 bg-rose-100 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+              <AlertCircle size={40} />
+            </div>
+            <h1 className="text-3xl font-black text-center text-gray-900 mb-4 tracking-tight">Application Error</h1>
+            <p className="text-gray-500 text-center mb-8 font-medium">The application failed to render. This is often due to missing data or a temporary connection issue.</p>
+            
+            <div className="bg-rose-50/50 p-6 rounded-2xl border border-rose-100 mb-8 max-h-60 overflow-auto no-scrollbar">
+              <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2">Error Details</p>
+              <pre className="text-xs font-mono text-rose-600 break-all whitespace-pre-wrap leading-relaxed">
+                {this.state.error?.name}: {this.state.error?.message}
+                {"\n\nStack:\n"}{this.state.error?.stack}
+              </pre>
+            </div>
+            
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-rose-500 text-white py-5 rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all active:translate-y-0"
+            >
+              Refresh Application
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [error, setError] = useState<string | null>(null);
 
@@ -461,7 +385,11 @@ export default function App() {
     );
   }
 
-  return <AppContent />;
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
 }
 
 interface FloatingWindowProps {
@@ -1373,121 +1301,6 @@ const EmptyState = ({ message }: { message: string }) => (
   </div>
 );
 
-const ProjectView = ({ project, notes, folders, taskLists, tasks, onOpenNote, onOpenFolder, onOpenTaskList, onAddItem }: {
-  project: Project | undefined;
-  notes: Note[];
-  folders: FolderType[];
-  taskLists: TaskList[];
-  tasks: Task[];
-  onOpenNote: (id: string) => void;
-  onOpenFolder: (id: string) => void;
-  onOpenTaskList: (id: string) => void;
-  onAddItem: (projectId: string, item: ProjectItem) => void;
-}) => {
-  if (!project) return (
-    <div className="flex flex-col items-center justify-center h-full p-20 text-center">
-      <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400">
-        <LayoutGrid size={40} />
-      </div>
-      <h3 className="text-xl font-bold text-gray-900">Project Not Found</h3>
-      <p className="text-gray-500">The project you are looking for might have been deleted.</p>
-    </div>
-  );
-
-  return (
-    <div 
-      className="p-8 max-w-6xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500"
-      onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-primary/5'); }}
-      onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('bg-primary/5'); }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.currentTarget.classList.remove('bg-primary/5');
-        if (!project) return;
-        const noteId = e.dataTransfer.getData('noteId');
-        const folderId = e.dataTransfer.getData('folderId');
-        const taskId = e.dataTransfer.getData('taskId');
-        
-        if (noteId) {
-          const note = notes.find(n => n.id === noteId);
-          if (note) onAddItem(project.id, { type: 'note', refId: noteId, name: note.title });
-        } else if (folderId) {
-          const folder = folders.find(f => f.id === folderId);
-          if (folder) onAddItem(project.id, { type: 'folder', refId: folderId, name: folder.name });
-        } else if (taskId) {
-          const task = tasks.find(t => t.id === taskId);
-          if (task) onAddItem(project.id, { type: 'task', refId: taskId, name: task.title });
-        }
-      }}
-    >
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-        <div className="flex items-center gap-6">
-          <div 
-            className="w-20 h-20 rounded-[2.5rem] flex items-center justify-center text-white text-4xl font-display font-bold shadow-2xl rotate-3"
-            style={{ 
-              backgroundColor: project.color || colors.primary,
-              boxShadow: `0 20px 40px -12px ${project.color || colors.primary}40`
-            }}
-          >
-            {project.name[0]}
-          </div>
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Project Overview</span>
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            </div>
-            <h1 className="text-4xl font-display font-bold text-gray-900 tracking-tight">
-              {project.name}
-            </h1>
-            <p className="text-gray-500 mt-2 font-medium max-w-xl">{project.description || 'No description provided.'}</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <button className="p-3 bg-white border border-gray-100 rounded-2xl text-gray-400 hover:text-primary hover:border-primary transition-all shadow-sm">
-            <Share2 size={20} />
-          </button>
-          <button className="p-3 bg-white border border-gray-100 rounded-2xl text-gray-400 hover:text-primary hover:border-primary transition-all shadow-sm">
-            <Settings size={20} />
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="col-span-full mb-2">
-          <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Project Assets</h3>
-        </div>
-        
-        {project.items?.map(item => (
-          <motion.div 
-            key={item.id}
-            whileHover={{ y: -4 }}
-            className="group p-5 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all cursor-pointer flex items-center gap-4"
-            onClick={() => {
-              if (item.type === 'note' && item.refId) onOpenNote(item.refId);
-              if (item.type === 'folder' && item.refId) onOpenFolder(item.refId);
-            }}
-          >
-            <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-500 group-hover:bg-primary group-hover:text-white transition-all">
-              {item.type === 'note' && <Type size={20} />}
-              {item.type === 'folder' && <Folder size={20} />}
-              {item.type === 'image' && <ImageIcon size={20} />}
-            </div>
-            <div className="min-w-0">
-              <h4 className="text-sm font-bold text-gray-900 truncate group-hover:text-primary transition-colors">{item.name}</h4>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{item.type}</p>
-            </div>
-          </motion.div>
-        ))}
-
-        <button className="aspect-[3/1] md:aspect-square rounded-[3rem] border-2 border-dashed border-gray-100 flex flex-col items-center justify-center text-gray-300 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all group">
-          <Plus size={32} className="mb-2 group-hover:scale-110 transition-transform duration-500" />
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Drop Asset Here</span>
-        </button>
-      </div>
-    </div>
-  );
-};
-
 const FolderTreeItem = ({ folder, allFolders, level, currentFolderId, expandedFolderIds, onSelect, onToggle, onContextMenu }: {
   folder: FolderType;
   allFolders: FolderType[];
@@ -1723,13 +1536,20 @@ const PaneRenderer = ({
           </div>
 
           {pane.viewMode === 'project' ? (
-            <ProjectDetailView 
-              project={projects.find(p => p.id === pane.currentProjectId)!}
-              notes={notes}
-              folders={folders}
-              openWindow={openWindow}
-              setCurrentFolderId={onSelectFolder}
-            />
+            projects.find(p => p.id === pane.currentProjectId) ? (
+              <ProjectDetailView 
+                project={projects.find(p => p.id === pane.currentProjectId)!}
+                notes={notes}
+                folders={folders}
+                openWindow={openWindow}
+                setCurrentFolderId={onSelectFolder}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center p-20 text-gray-400">
+                <LayoutGrid size={48} className="mb-4 animate-pulse" />
+                <p className="font-bold text-sm uppercase tracking-widest">Loading Project...</p>
+              </div>
+            )
           ) : pane.viewMode === 'workflow' ? (
             <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
                {statuses.filter(s => s.isVisible).map((status) => (
@@ -2892,12 +2712,16 @@ function AppContent() {
   };
 
   if (!isAuthReady) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white p-8">
-      <motion.div 
-        animate={{ rotate: 360 }}
-        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full"
-      />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F9F7FF] p-8">
+      <div className="text-center">
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+          className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-6 shadow-xl"
+        />
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Initializing System</h2>
+        <p className="text-gray-500 text-sm animate-pulse">Checking authentication status...</p>
+      </div>
     </div>
   );
 

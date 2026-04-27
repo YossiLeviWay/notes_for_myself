@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { X, Eye, Grid, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
-import { Note, FolderType, Project, UserSettings } from '../App';
+import { Note, FolderType, Project, UserSettings } from '../types';
 
 interface PreviewModalProps {
   isOpen: boolean;
