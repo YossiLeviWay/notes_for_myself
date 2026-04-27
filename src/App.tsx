@@ -355,11 +355,21 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log("App mounted");
     const handleError = (e: ErrorEvent) => {
+      console.error("Global error caught:", e.message, e.error);
       setError(e.message);
     };
+    const handleRejection = (e: PromiseRejectionEvent) => {
+      console.error("Unhandled promise rejection:", e.reason);
+      setError(String(e.reason));
+    };
     window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
   }, []);
 
   if (error) {
@@ -1630,6 +1640,7 @@ const PaneRenderer = ({
 };
 
 function AppContent() {
+  console.log("AppContent rendering");
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -2711,6 +2722,8 @@ function AppContent() {
     );
   };
 
+  console.log("AppContent State Check:", { isAuthReady, isAdmin, user: user?.email });
+
   if (!isAuthReady) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F9F7FF] p-8">
       <div className="text-center">
@@ -2721,6 +2734,7 @@ function AppContent() {
         />
         <h2 className="text-xl font-bold text-gray-900 mb-2">Initializing System</h2>
         <p className="text-gray-500 text-sm animate-pulse">Checking authentication status...</p>
+        <p className="text-[8px] text-gray-300 mt-4">Debug: Auth Waiting</p>
       </div>
     </div>
   );
@@ -2764,6 +2778,7 @@ function AppContent() {
           <p className="mt-8 text-xs text-gray-400 font-medium">
             This application is restricted to authorized personnel only.
           </p>
+          <p className="text-[8px] text-gray-200 mt-2">Debug: Login Required</p>
         </motion.div>
       </div>
     );
@@ -2793,6 +2808,7 @@ function AppContent() {
         backgroundAttachment: 'fixed'
       }}
     >
+      <div className="fixed top-0 left-0 z-[9999] pointer-events-none opacity-20 text-[8px] p-1">Debug: Main App</div>
       {/* Header */}
       <header className={`sticky top-0 z-50 w-full transition-all duration-300 px-4 py-3 md:px-8 ${userSettings.theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} border-b shadow-sm`}>
         <div className="max-w-[2400px] mx-auto flex items-center justify-between gap-6">
