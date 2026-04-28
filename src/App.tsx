@@ -80,7 +80,8 @@ import {
   Columns,
   Link as LinkIcon,
   Share2,
-  History
+  History,
+  AlertTriangle
 } from 'lucide-react';
 import { db, auth } from './firebase';
 import { format, isAfter, isBefore, startOfToday, endOfToday, addDays } from 'date-fns';
@@ -303,53 +304,6 @@ const NoteCard = React.memo(({ note, isAdmin, onEdit, onFavorite, onArchive, onD
     </motion.div>
   );
 });
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: any) {
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-rose-50 p-8">
-          <div className="max-w-xl w-full bg-white p-10 rounded-[3rem] shadow-2xl border border-rose-100">
-            <div className="w-20 h-20 bg-rose-100 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
-              <AlertCircle size={40} />
-            </div>
-            <h1 className="text-3xl font-black text-center text-gray-900 mb-4 tracking-tight">Application Error</h1>
-            <p className="text-gray-500 text-center mb-8 font-medium">The application failed to render. This is often due to missing data or a temporary connection issue.</p>
-            
-            <div className="bg-rose-50/50 p-6 rounded-2xl border border-rose-100 mb-8 max-h-60 overflow-auto no-scrollbar">
-              <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2">Error Details</p>
-              <pre className="text-xs font-mono text-rose-600 break-all whitespace-pre-wrap leading-relaxed">
-                {this.state.error?.name}: {this.state.error?.message}
-                {"\n\nStack:\n"}{this.state.error?.stack}
-              </pre>
-            </div>
-            
-            <button 
-              onClick={() => window.location.reload()}
-              className="w-full bg-rose-500 text-white py-5 rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all active:translate-y-0"
-            >
-              Refresh Application
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
 
 export default function App() {
   const [error, setError] = useState<string | null>(null);
@@ -396,9 +350,7 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <AppContent />
-    </ErrorBoundary>
+    <AppContent />
   );
 }
 
@@ -1639,6 +1591,117 @@ const PaneRenderer = ({
   );
 };
 
+const DeletionConfirmModal = ({ 
+  isOpen, 
+  title, 
+  message, 
+  onConfirm, 
+  onCancel, 
+  itemName, 
+  userSettings 
+}: { 
+  isOpen: boolean, 
+  title: string, 
+  message: string, 
+  onConfirm: () => void, 
+  onCancel: () => void, 
+  itemName?: string,
+  userSettings: UserSettings
+}) => {
+  const [input, setInput] = useState('');
+  const [step, setStep] = useState(1);
+  const isDark = userSettings.theme === 'dark';
+
+  if (!isOpen) return null;
+
+  const handleConfirm = () => {
+    if (itemName && input !== itemName) return;
+    if (step === 1 && !itemName) {
+      setStep(2);
+      return;
+    }
+    onConfirm();
+    setStep(1);
+    setInput('');
+  };
+
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onCancel}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      />
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        className={`relative w-full max-w-md ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-100'} rounded-[2.5rem] shadow-2xl p-8 border`}
+      >
+        <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mb-6 shadow-inner mx-auto">
+          <AlertTriangle size={32} />
+        </div>
+
+        <h3 className={`text-2xl font-black text-center mb-2 tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
+        <p className={`text-center text-sm font-medium mb-8 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{message}</p>
+
+        {itemName && (
+          <div className="mb-8">
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-3 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              Type <span className="text-rose-500">"{itemName}"</span> to confirm
+            </p>
+            <input 
+              autoFocus
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type it here..."
+              className={`w-full px-6 py-4 rounded-2xl border ${isDark ? 'bg-gray-800 border-gray-700 text-white placeholder:text-gray-600' : 'bg-gray-50 border-gray-100 text-gray-900 placeholder:text-gray-400'} focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 outline-none transition-all text-center font-bold`}
+            />
+          </div>
+        )}
+
+        {step === 1 && !itemName && (
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={handleConfirm}
+              className="w-full py-4 bg-rose-500 text-white rounded-2xl font-bold shadow-xl hover:bg-rose-600 transition-all active:scale-95"
+            >
+              I'm sure, continue
+            </button>
+            <button 
+              onClick={onCancel}
+              className={`w-full py-4 rounded-2xl font-bold transition-all ${isDark ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            >
+              No, keep it
+            </button>
+          </div>
+        )}
+
+        {(step === 2 || itemName) && (
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={handleConfirm}
+              disabled={itemName ? input !== itemName : false}
+              className={`w-full py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-xl hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none disabled:active:scale-100`}
+            >
+              {itemName ? 'Permanently Delete' : 'Final Step: Yes, Delete'}
+            </button>
+            <button 
+              onClick={() => { setStep(1); setInput(''); if(itemName) onCancel(); }}
+              className={`w-full py-4 rounded-2xl font-bold transition-all ${isDark ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            >
+              Wait, go back
+            </button>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+
 function AppContent() {
   console.log("AppContent rendering");
   const [user, setUser] = useState<User | null>(null);
@@ -1854,6 +1917,27 @@ function AppContent() {
     return saved ? JSON.parse(saved) : false;
   });
 
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    itemName?: string;
+  } | null>(null);
+
+  const confirmDelete = (title: string, message: string, onConfirm: () => void, itemName?: string) => {
+    setDeleteConfirmation({
+      show: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setDeleteConfirmation(null);
+      },
+      itemName
+    });
+  };
+
   const [showDensityPopover, setShowDensityPopover] = useState(false);
   const [showBgPopover, setShowBgPopover] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -2053,16 +2137,23 @@ function AppContent() {
   };
 
   const handleDeleteTask = async (id: string) => {
-    const path = `artifacts/${appId}/public/data/tasks/${id}`;
-    try {
-      const task = tasks.find(t => t.id === id);
-      if (task) {
-        await deleteDoc(doc(db, path));
-        addToHistory({ type: 'task', action: 'delete', id, data: task });
+    if (!user || !isAdmin) return;
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
+    confirmDelete(
+      "Delete Task",
+      `Are you sure you want to permanently delete the task "${task.title}"?`,
+      async () => {
+        const path = `artifacts/${appId}/public/data/tasks/${id}`;
+        try {
+          await deleteDoc(doc(db, path));
+          addToHistory({ type: 'task', action: 'delete', id, data: task });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.DELETE, path);
+        }
       }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, path);
-    }
+    );
   };
 
   const handleAddTaskList = async (name: string) => {
@@ -2091,26 +2182,37 @@ function AppContent() {
   };
 
   const handleDeleteTaskList = async (id: string) => {
-    const path = `artifacts/${appId}/public/data/taskLists/${id}`;
-    try {
-      // Delete non-archived tasks in this list
-      const listTasks = tasks.filter(t => t.listId === id);
-      const batch = writeBatch(db);
-      listTasks.forEach(task => {
-        if (!task.isArchived) {
-          const taskPath = `artifacts/${appId}/public/data/tasks/${task.id}`;
-          batch.delete(doc(db, taskPath));
-        }
-      });
-      await batch.commit();
+    if (!user || !isAdmin) return;
+    const list = taskLists.find(l => l.id === id);
+    if (!list) return;
 
-      await deleteDoc(doc(db, path));
-      if (activeTaskListId === id) {
-        setActiveTaskListId(taskLists.find(l => l.id !== id)?.id || null);
-      }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, path);
-    }
+    confirmDelete(
+      "Delete Task List",
+      `This will permanently delete "${list.name}" and all tasks inside it. This action is irreversible.`,
+      async () => {
+        const path = `artifacts/${appId}/public/data/taskLists/${id}`;
+        try {
+          // Delete non-archived tasks in this list
+          const listTasks = tasks.filter(t => t.listId === id);
+          const batch = writeBatch(db);
+          listTasks.forEach(task => {
+            if (!task.isArchived) {
+              const taskPath = `artifacts/${appId}/public/data/tasks/${task.id}`;
+              batch.delete(doc(db, taskPath));
+            }
+          });
+          await batch.commit();
+
+          await deleteDoc(doc(db, path));
+          if (activeTaskListId === id) {
+            setActiveTaskListId(taskLists.find(l => l.id !== id)?.id || null);
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, path);
+        }
+      },
+      list.name
+    );
   };
 
   const handleUpdateTaskList = async (id: string, name: string) => {
@@ -2164,12 +2266,23 @@ function AppContent() {
 
   const handleDeleteProject = async (id: string) => {
     if (!user || !isAdmin) return;
-    const path = `artifacts/${appId}/public/data/projects/${id}`;
-    try {
-      await deleteDoc(doc(db, path));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, path);
-    }
+    const project = projects.find(p => p.id === id);
+    if (!project) return;
+
+    confirmDelete(
+      "Delete Project",
+      `Are you sure you want to delete the project "${project.name}"? Referenced items will not be deleted, but will lose their project association.`,
+      async () => {
+        const path = `artifacts/${appId}/public/data/projects/${id}`;
+        try {
+          await deleteDoc(doc(db, path));
+          if (currentProjectId === id) setGlobalProjectId(null);
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, path);
+        }
+      },
+      project.name
+    );
   };
 
   const handleAddProjectItem = async (projectId: string, item: Omit<ProjectItem, 'id'>) => {
@@ -2210,8 +2323,17 @@ function AppContent() {
 
   const handleDeleteLayout = async (layoutId: string) => {
     if (!user || !isAdmin) return;
-    const updatedLayouts = (userSettings.savedLayouts || []).filter(l => l.id !== layoutId);
-    await updateUserSettings({ savedLayouts: updatedLayouts });
+    const layout = userSettings.savedLayouts?.find(l => l.id === layoutId);
+    if (!layout) return;
+
+    confirmDelete(
+      "Delete Layout",
+      `Are you sure you want to delete the saved workspace layout "${layout.name}"?`,
+      async () => {
+        const updatedLayouts = (userSettings.savedLayouts || []).filter(l => l.id !== layoutId);
+        await updateUserSettings({ savedLayouts: updatedLayouts });
+      }
+    );
   };
 
   const handleFirestoreError = (error: any, operationType: OperationType, path: string | null) => {
@@ -2575,14 +2697,24 @@ function AppContent() {
   };
 
   const deleteProject = async (id: string) => {
-    if (!isAdmin || !confirm("Delete this project? Items inside will not be deleted.")) return;
-    const path = `artifacts/${appId}/public/data/projects/${id}`;
-    try {
-      await deleteDoc(doc(db, path));
-      if (currentProjectId === id) setGlobalProjectId(null);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, path);
-    }
+    if (!isAdmin) return;
+    const project = projects.find(p => p.id === id);
+    if (!project) return;
+    
+    confirmDelete(
+      "Delete Project",
+      `Are you sure you want to delete the project "${project.name}"? Referential links will be removed, but the items themselves won't be deleted.`,
+      async () => {
+        const path = `artifacts/${appId}/public/data/projects/${id}`;
+        try {
+          await deleteDoc(doc(db, path));
+          if (currentProjectId === id) setGlobalProjectId(null);
+        } catch (err) {
+          handleFirestoreError(err, OperationType.DELETE, path);
+        }
+      },
+      project.name
+    );
   };
 
   const toggleFavorite = async (note: Note) => {
@@ -2625,27 +2757,44 @@ function AppContent() {
   const deleteNote = async (id: string) => {
     if (!isAdmin) return;
     const note = notes.find(n => n.id === id);
-    if (note) {
-      const path = `artifacts/${appId}/public/data/notes/${id}`;
-      await deleteDoc(doc(db, path));
-      addToHistory({ type: 'note', action: 'delete', id, data: note });
-    }
+    if (!note) return;
+
+    confirmDelete(
+      "Delete Note",
+      `Are you sure you want to permanently delete "${note.title}"? This action cannot be undone.`,
+      async () => {
+        const path = `artifacts/${appId}/public/data/notes/${id}`;
+        await deleteDoc(doc(db, path));
+        addToHistory({ type: 'note', action: 'delete', id, data: note });
+      },
+      note.title
+    );
   };
 
   const deleteFolder = async (id: string) => {
-    if (!isAdmin || !confirm("Delete this folder? Notes inside will not be deleted but will lose their folder association.")) return;
-    const path = `artifacts/${appId}/public/data/folders`;
-    try {
-      await deleteDoc(doc(db, path, id));
-      // Update notes that were in this folder
-      const notesInFolder = notes.filter(n => n.folderId === id);
-      for (const note of notesInFolder) {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notes', note.id), { folderId: null });
-      }
-      if (currentFolderId === id) setCurrentFolderId(null);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, path);
-    }
+    if (!isAdmin) return;
+    const folder = folders.find(f => f.id === id);
+    if (!folder) return;
+
+    confirmDelete(
+      "Delete Folder",
+      `Delete folder "${folder.name}"? Notes inside will not be deleted but will lose their folder association.`,
+      async () => {
+        const path = `artifacts/${appId}/public/data/folders`;
+        try {
+          await deleteDoc(doc(db, path, id));
+          // Update notes that were in this folder
+          const notesInFolder = notes.filter(n => n.folderId === id);
+          for (const note of notesInFolder) {
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notes', note.id), { folderId: null });
+          }
+          if (currentFolderId === id) setCurrentFolderId(null);
+        } catch (err) {
+          handleFirestoreError(err, OperationType.DELETE, path);
+        }
+      },
+      folder.name
+    );
   };
 
   const filteredNotes = useMemo(() => {
@@ -2844,7 +2993,7 @@ function AppContent() {
                     onClick={() => handleSelectLayout(layout.id)}
                     onContextMenu={(e) => {
                       e.preventDefault();
-                      if (confirm('Delete this layout?')) handleDeleteLayout(layout.id);
+                      handleDeleteLayout(layout.id);
                     }}
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all border ${panes.map(p => p.currentFolderId).join(',') === layout.panes.map(p => p.currentFolderId).join(',') ? 'bg-primary text-white border-primary shadow-md' : 'bg-gray-100 text-gray-600 border-gray-200 hover:border-primary'}`}
                   >
@@ -3606,6 +3755,7 @@ function AppContent() {
           folders={folders}
           taskLists={taskLists}
           requestNotificationPermission={requestNotificationPermission}
+          confirmDelete={confirmDelete}
           onSave={async (newStatuses, newSettings) => {
             const sDoc = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
             try {
@@ -3996,6 +4146,19 @@ function AppContent() {
           background: #f9fafb;
         }
       `}</style>
+      <AnimatePresence>
+        {deleteConfirmation && (
+          <DeletionConfirmModal 
+            isOpen={!!deleteConfirmation}
+            title={deleteConfirmation.title}
+            message={deleteConfirmation.message}
+            onConfirm={deleteConfirmation.onConfirm}
+            onCancel={() => setDeleteConfirmation(null)}
+            itemName={deleteConfirmation.itemName}
+            userSettings={userSettings}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -4064,7 +4227,8 @@ function SettingsModal({
   onSave,
   folders,
   taskLists,
-  requestNotificationPermission
+  requestNotificationPermission,
+  confirmDelete
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
@@ -4075,7 +4239,8 @@ function SettingsModal({
   onSave: (statuses: StatusOption[], settings: UserSettings) => Promise<void>,
   folders: FolderType[],
   taskLists: TaskList[],
-  requestNotificationPermission: () => Promise<void>
+  requestNotificationPermission: () => Promise<void>,
+  confirmDelete: (title: string, message: string, onConfirm: () => void, itemName?: string) => void
 }) {
   const [localStatuses, setLocalStatuses] = useState<StatusOption[]>(statuses);
   const [localSettings, setLocalSettings] = useState<UserSettings>(userSettings);
@@ -4093,7 +4258,17 @@ function SettingsModal({
 
   const handleRemoveStatus = (id: string) => {
     if (localStatuses.length <= 1) return;
-    setLocalStatuses(localStatuses.filter(s => s.id !== id));
+    const status = localStatuses.find(s => s.id === id);
+    if (!status) return;
+
+    confirmDelete(
+      "Remove Status",
+      `Are you sure you want to remove the status "${status.label}"? This only affects your local settings until saved.`,
+      () => {
+        setLocalStatuses(localStatuses.filter(s => s.id !== id));
+      },
+      status.label
+    );
   };
 
   const handleStatusChange = (id: string, field: keyof StatusOption, value: any) => {
